@@ -1,143 +1,200 @@
 <title>Painel de e-mails</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap">
 <style>
-/* Layout: cabeçalho → filtros → cartões por tipo → gráfico por dia → lista com detalhe expansível */
+/* Layout: barra de status → orbe com resumo falado à esquerda, números e gráfico à direita → lista de e-mails → letreiro */
 :root{
-  --bg:#f5f6f4; --surface:#ffffff; --border:#e2e4df; --grid:#eceee9;
-  --text:#1a1c19; --text2:#5f645c; --accent:#2370cd; --accent-ink:#ffffff;
-  --warn-bg:#fff6e5; --warn-border:#f2c26b;
-  --c-venda:#257de0; --c-pergunta:#f47230; --c-mensagem:#00b894; --c-outros:#a3a8a0;
-  --font:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  --font-head:"Space Grotesk","Inter",system-ui,sans-serif;
+  color-scheme:dark;
+  --bg:#03070f; --bg2:#071124; --panel:rgba(10,30,60,.35); --surface:rgba(10,30,60,.55);
+  --line:rgba(90,200,255,.28); --border:rgba(90,200,255,.28); --grid:rgba(90,200,255,.12);
+  --cyan:#4fd8ff; --cyan-soft:#8fe6ff; --accent:#4fd8ff; --text:#d8f3ff; --text2:#6f93ad;
+  --up:#3dffb0; --warn:#ffb547;
+  --c-venda:#4fd8ff; --c-pergunta:#ff8a3d; --c-mensagem:#3dffb0; --c-outros:#5b7184;
+  --font:"Rajdhani",-apple-system,"Segoe UI",sans-serif; --mono:"Share Tech Mono",ui-monospace,monospace;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#121411; --surface:#1a1c19; --border:#2e312c; --grid:#262924;
-  --text:#eef0ec; --text2:#9ca197; --accent:#338ced; --accent-ink:#ffffff;
-  --warn-bg:#2a2414; --warn-border:#8a6a25;
-  --c-venda:#338ced; --c-pergunta:#e76624; --c-mensagem:#00a888; --c-outros:#6c7169;
-  color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#121411; --surface:#1a1c19; --border:#2e312c; --grid:#262924;
-  --text:#eef0ec; --text2:#9ca197; --accent:#338ced; --accent-ink:#ffffff;
-  --warn-bg:#2a2414; --warn-border:#8a6a25;
-  --c-venda:#338ced; --c-pergunta:#e76624; --c-mensagem:#00a888; --c-outros:#6c7169;
-  color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-body{background:var(--bg);color:var(--text);font:15px/1.45 var(--font)}
-.wrap{max-width:1100px;margin:0 auto;padding-block:20px 48px;
+body{background:radial-gradient(ellipse at 30% 30%,#0b2347 0%,var(--bg2) 40%,var(--bg) 100%) fixed;background-color:var(--bg);
+  color:var(--text);font:16px/1.4 var(--font);overflow-x:hidden}
+.mono{font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.app{max-width:1400px;margin:0 auto;padding-block:18px 0;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
   display:flex;flex-direction:column;gap:16px}
-header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
-h1{font:600 24px/1.2 var(--font-head);margin:0;text-wrap:balance}
-h2{font:600 15px/1.3 var(--font-head);margin:0}
-.sub{color:var(--text2);font-size:13px}
-a{color:var(--accent)}
-button{font:inherit;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);
-  border-radius:8px;padding:7px 14px}
-button.prim{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-button:disabled{opacity:.55;cursor:default}
-button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.card:focus-visible,.linha:focus-visible{
-  outline:2px solid var(--accent);outline-offset:2px}
-.filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--bg)}
-.seg button{border:0;border-radius:0;background:transparent;color:var(--text2);font-size:13px;padding:7px 12px}
-.seg button[aria-pressed="true"]{background:var(--surface);color:var(--text);font-weight:600}
-#conta{font:inherit;font-size:13px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);max-width:100%}
-#busca{flex:1 1 220px;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:8px;
-  background:var(--surface);color:var(--text);font:inherit}
-.aviso{background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:10px;padding:12px 14px;
-  display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
-.progresso{height:4px;background:var(--grid);border-radius:4px;overflow:hidden}
-.progresso div{height:100%;background:var(--accent);width:0;transition:width .2s}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;
-  text-align:left;display:flex;flex-direction:column;gap:2px}
-.card[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
-.card .rot{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2)}
-.card .num{font:650 30px/1.15 var(--font-head);font-variant-numeric:tabular-nums}
-.card .pct{font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums}
-.dot{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
-.painel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;
-  display:flex;flex-direction:column;gap:10px;min-width:0}
-.legenda{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--text2)}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px 16px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line);padding-bottom:6px;flex-wrap:wrap}
+.brand b{font-weight:700;font-size:30px;letter-spacing:.22em;color:var(--cyan);text-shadow:0 0 14px rgba(79,216,255,.6)}
+.brand span{font-size:11px;color:var(--text2)}
+.sbar{display:flex;gap:18px;font-size:12px;color:var(--text2);flex-wrap:wrap}
+.sbar .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--up);box-shadow:0 0 8px var(--up);margin-right:6px;animation:blink 2s infinite}
+.busy .sbar .dot{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+@keyframes blink{50%{opacity:.35}}
+.aviso{border:1px solid var(--warn);background:rgba(255,181,71,.08);color:var(--text);padding:12px 16px;
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;font-size:16px}
+.progresso{height:2px;background:var(--grid);overflow:hidden}
+.progresso div{height:100%;background:var(--cyan);box-shadow:0 0 10px var(--cyan);width:0;transition:width .2s}
+main{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:28px;align-items:center}
+.left{display:flex;flex-direction:column;align-items:center;gap:16px;min-width:0}
+.orbwrap{position:relative;width:min(34vw,320px);aspect-ratio:1;max-width:100%}
+.orbwrap svg{position:absolute;inset:0;width:100%;height:100%}
+.ring1{animation:spin 40s linear infinite;transform-origin:50% 50%}
+.ring2{animation:spin 25s linear infinite reverse;transform-origin:50% 50%}
+@keyframes spin{to{transform:rotate(360deg)}}
+.orb{position:absolute;inset:22%;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#bff4ff 0%,#3fc6ff 22%,#1d6dff 52%,#5a2bd6 78%,#1a0b55 100%);
+  box-shadow:0 0 50px rgba(63,198,255,.55),0 0 120px rgba(80,60,255,.35),inset 0 0 40px rgba(255,255,255,.25);
+  animation:breathe 4s ease-in-out infinite;overflow:hidden}
+.orb::after{content:"";position:absolute;inset:-30%;background:conic-gradient(from 0deg,transparent,rgba(255,255,255,.28),transparent 30%,rgba(140,90,255,.35),transparent 60%);animation:spin 6s linear infinite;mix-blend-mode:screen}
+@keyframes breathe{50%{transform:scale(1.04)}}
+.busy .orb{animation:talk .45s ease-in-out infinite alternate}
+@keyframes talk{from{transform:scale(1);filter:brightness(1)}to{transform:scale(1.08);filter:brightness(1.3)}}
+.state{font-size:13px;color:var(--cyan);min-height:18px;text-align:center}
+.caption{display:flex;gap:12px;align-items:flex-start;max-width:520px;min-height:64px}
+.caption small{font-size:10px;color:var(--text2);padding-top:7px;white-space:nowrap}
+.caption p{margin:0;font-size:22px;line-height:1.3;font-weight:600;color:var(--cyan-soft);text-shadow:0 0 12px rgba(79,216,255,.35)}
+.right{display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel{border:1px solid var(--line);background:var(--panel);padding:16px 20px;position:relative;backdrop-filter:blur(4px);min-width:0}
+.panel::before,.panel::after{content:"";position:absolute;width:12px;height:12px;border:2px solid var(--cyan);pointer-events:none}
+.panel::before{top:-1px;left:-1px;border-right:0;border-bottom:0}
+.panel::after{bottom:-1px;right:-1px;border-left:0;border-top:0}
+.ptitle{font-size:11px;color:var(--cyan);margin:0 0 14px;font-weight:400}
+.ptitle::before{content:"◆ "}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.card{border:0;border-top:1px solid var(--line);background:transparent;color:var(--text);padding:8px 4px 6px;
+  text-align:left;display:flex;flex-direction:column;gap:2px;cursor:pointer;font:inherit;box-shadow:none;letter-spacing:normal;text-transform:none}
+.card:hover{background:rgba(79,216,255,.05)}
+.card[aria-pressed="true"]{border-top:2px solid var(--cyan);background:rgba(79,216,255,.08)}
+.card .rot{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text2)}
+.card .num{font-family:var(--mono);font-size:28px;color:var(--text);font-variant-numeric:tabular-nums}
+.card .pct{font-family:var(--mono);font-size:12px;color:var(--text2)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none;box-shadow:0 0 6px currentColor}
+.legenda{display:flex;flex-wrap:wrap;gap:6px 14px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin-bottom:6px}
 .legenda span{display:inline-flex;align-items:center;gap:6px}
 .grafico{position:relative}
 .grafico svg{width:100%;height:auto;display:block}
-.grafico text{fill:var(--text2);font-size:11px;font-family:var(--font)}
-.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--border);
-  border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.14);white-space:nowrap;z-index:2}
+.grafico text{fill:var(--text2);font-size:11px;font-family:var(--mono)}
+.tip{position:absolute;pointer-events:none;background:#06122a;border:1px solid var(--cyan);padding:8px 10px;font-family:var(--mono);
+  font-size:12px;box-shadow:0 0 18px rgba(79,216,255,.3);white-space:nowrap;z-index:2;color:var(--text)}
 .tip div{display:flex;align-items:center;gap:6px}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+button{font-family:var(--mono);text-transform:uppercase;letter-spacing:.14em;font-size:13px;border:1px solid var(--cyan);
+  background:var(--cyan);color:#02101c;padding:10px 18px;cursor:pointer;box-shadow:0 0 18px rgba(79,216,255,.45);border-radius:0}
+button.ghost{background:transparent;color:var(--cyan);box-shadow:none}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.linha:focus-visible{outline:2px solid var(--cyan-soft);outline-offset:2px}
+.seg{display:inline-flex;border:1px solid var(--line)}
+.seg button{background:transparent;color:var(--text2);border:0;box-shadow:none;padding:9px 12px;font-size:12px}
+.seg button[aria-pressed="true"]{background:rgba(79,216,255,.15);color:var(--cyan)}
+select,#busca{font-family:var(--mono);font-size:13px;letter-spacing:.06em;background:rgba(3,10,22,.7);color:var(--text);
+  border:1px solid var(--line);padding:9px 10px;border-radius:0;max-width:100%}
+#busca{flex:1 1 220px;min-width:0}
+#busca::placeholder{color:var(--text2)}
+.lista-topo{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;margin-bottom:6px}
+.lista-topo .ptitle{margin:0}
 .lista{display:flex;flex-direction:column}
-.linha{display:grid;grid-template-columns:150px minmax(0,1fr) 190px 110px;gap:12px;align-items:start;
-  padding:10px 8px;border-top:1px solid var(--grid);cursor:pointer;background:none;border-left:0;border-right:0;
-  border-bottom:0;border-radius:0;text-align:left;color:var(--text);width:100%}
-.linha:hover{background:var(--bg)}
-.cab{font-size:12px;color:var(--text2);cursor:default;border-top:0}
+.linha{display:grid;grid-template-columns:170px minmax(0,1fr) 210px 110px;gap:14px;align-items:start;padding:12px 8px;
+  border:0;border-top:1px solid var(--grid);background:none;box-shadow:none;cursor:pointer;text-align:left;color:var(--text);width:100%;
+  font:inherit;text-transform:none;letter-spacing:normal}
+.linha:hover{background:rgba(79,216,255,.06)}
+.linha[aria-expanded="true"]{background:rgba(79,216,255,.08)}
+.cab{cursor:default;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);border-top:0;padding-block:4px}
 .cab:hover{background:none}
-.tag{display:inline-flex;align-items:center;gap:6px;font-size:12px}
-.assunto{font-weight:600;overflow-wrap:anywhere}
+.tag{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
 .assunto,.rem>span{display:block}
-.trecho{color:var(--text2);font-size:13px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
-.rem{overflow-wrap:anywhere;font-size:14px}
-.quando{color:var(--text2);font-size:13px;font-variant-numeric:tabular-nums}
-.detalhe{padding:4px 8px 16px 8px;display:flex;flex-direction:column;gap:12px;border-top:1px dashed var(--grid)}
-.detalhe .texto{white-space:pre-wrap;overflow-wrap:anywhere}
-.detalhe .acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.detalhe select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
-.motivos{font-size:12px;color:var(--text2);margin:0;padding-left:18px}
-.vazio{color:var(--text2);text-align:center;padding:28px 8px}
-.mais{align-self:center}
+.assunto{font-weight:700;font-size:17px;overflow-wrap:anywhere}
+.trecho{color:var(--text2);font-size:15px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.rem{overflow-wrap:anywhere;font-size:15px}
+.sub{color:var(--text2);font-size:13px}
+.quando{font-family:var(--mono);color:var(--cyan);font-size:13px;font-variant-numeric:tabular-nums}
+.detalhe{padding:6px 8px 18px;display:flex;flex-direction:column;gap:12px;border-left:2px solid var(--cyan);margin-left:8px;background:rgba(79,216,255,.04)}
+.detalhe .texto{white-space:pre-wrap;overflow-wrap:anywhere;font-size:17px}
+.detalhe .acoes{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.detalhe a{font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;font-size:13px;color:var(--cyan)}
+.motivos{font-size:14px;color:var(--text2);margin:0;padding-left:18px}
+.vazio{color:var(--text2);text-align:center;padding:26px 8px;margin:0;font-size:16px}
+.mais{align-self:center;margin-top:10px}
+.ticker{border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden;white-space:nowrap;padding:10px 0;background:rgba(3,10,22,.6)}
+.track{display:inline-block;padding-left:100%;animation:scroll 90s linear infinite;font-size:17px;font-weight:600}
+.track span{margin-right:28px}
+.track span::after{content:"◆";color:var(--cyan);margin-left:28px}
+.track b{font-family:var(--mono);font-weight:400;font-size:12px;letter-spacing:.1em;margin-right:8px}
+@keyframes scroll{to{transform:translateX(-100%)}}
+footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:4px 0 16px;font-size:10px;color:var(--text2)}
+@media (max-width:900px){
+  main{grid-template-columns:minmax(0,1fr)}
+  .orbwrap{width:min(56vw,240px)}
+  .caption p{font-size:19px}
+  .brand b{font-size:24px}
+}
 @media (max-width:700px){
+  .cards{grid-template-columns:repeat(2,minmax(0,1fr))}
   .linha{grid-template-columns:minmax(0,1fr) auto;row-gap:4px}
   .linha .c-rem{display:none}
   .linha .c-tipo{grid-column:1/-1;order:-1}
   .cab{display:none}
 }
-@media (prefers-reduced-motion:reduce){.progresso div{transition:none}}
+@media (prefers-reduced-motion:reduce){.ring1,.ring2,.orb,.orb::after,.track,.sbar .dot{animation:none}.progresso div{transition:none}}
 </style>
 
-<div class="wrap">
+<div class="app" id="app">
   <header>
-    <div>
-      <h1>Painel de e-mails</h1>
-      <div class="sub" id="status">Conectando ao Gmail…</div>
-    </div>
-    <button class="prim" id="atualizar" type="button">Atualizar</button>
+    <div class="brand"><b>E-MAILS</b><span class="mono">Central de atendimento</span></div>
+    <div class="sbar mono"><span><i class="dot"></i><span id="sis">Sistema ativo</span></span><span id="data-hoje"></span><span id="relogio">--:--:--</span></div>
   </header>
 
   <div class="aviso" id="aviso" hidden>
     <span id="aviso-texto"></span>
-    <button type="button" id="aviso-botao" hidden></button>
+    <button type="button" class="ghost" id="aviso-botao" hidden></button>
   </div>
   <div class="progresso" id="progresso" hidden><div></div></div>
 
-  <div class="filtros">
-    <div class="seg" role="group" aria-label="Período">
-      <button type="button" data-periodo="7" aria-pressed="true">7 dias</button>
-      <button type="button" data-periodo="14" aria-pressed="false">14 dias</button>
-      <button type="button" data-periodo="30" aria-pressed="false">30 dias</button>
+  <main>
+    <div class="left">
+      <div class="orbwrap" aria-hidden="true">
+        <svg viewBox="0 0 200 200">
+          <g class="ring1"><circle cx="100" cy="100" r="96" fill="none" stroke="rgba(90,200,255,.25)" stroke-width=".6" stroke-dasharray="1 3"/></g>
+          <g class="ring2"><circle cx="100" cy="100" r="86" fill="none" stroke="rgba(90,210,255,.55)" stroke-width="1" stroke-dasharray="40 12 4 12"/></g>
+          <circle cx="100" cy="100" r="78" fill="none" stroke="rgba(90,200,255,.18)" stroke-width=".6"/>
+          <g stroke="rgba(120,220,255,.7)" stroke-width="1.2"><line x1="100" y1="0" x2="100" y2="8"/><line x1="100" y1="192" x2="100" y2="200"/><line x1="0" y1="100" x2="8" y2="100"/><line x1="192" y1="100" x2="200" y2="100"/></g>
+        </svg>
+        <div class="orb"></div>
+      </div>
+      <div class="state mono" id="status">Conectando ao Gmail…</div>
+      <div class="caption"><small class="mono">Painel</small><p id="caption">Lendo a sua caixa de entrada.</p></div>
     </div>
-    <select id="conta" aria-label="Conta de e-mail" hidden></select>
-    <input id="busca" type="search" placeholder="Buscar por assunto, remetente ou texto" aria-label="Buscar">
-  </div>
 
-  <div class="cards" id="cards"></div>
+    <div class="right">
+      <section class="panel" id="sec-resumo">
+        <h2 class="ptitle mono">Resumo · <span id="per-rot">7 dias</span></h2>
+        <div class="cards" id="cards"></div>
+      </section>
+      <section class="panel" id="sec-grafico">
+        <h2 class="ptitle mono">E-mails por dia</h2>
+        <div class="legenda" id="legenda"></div>
+        <div class="grafico" id="grafico"><div class="tip" id="tip" hidden></div></div>
+      </section>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Período">
+          <button type="button" data-periodo="7" aria-pressed="true">7 dias</button>
+          <button type="button" data-periodo="14" aria-pressed="false">14 dias</button>
+          <button type="button" data-periodo="30" aria-pressed="false">30 dias</button>
+        </div>
+        <select id="conta" aria-label="Conta de e-mail" hidden></select>
+        <button type="button" id="atualizar">Atualizar</button>
+      </div>
+    </div>
+  </main>
 
-  <section class="painel" id="sec-grafico">
-    <h2>E-mails por dia</h2>
-    <div class="legenda" id="legenda"></div>
-    <div class="grafico" id="grafico"><div class="tip" id="tip" hidden></div></div>
-  </section>
-
-  <section class="painel" id="sec-lista">
-    <h2 id="titulo-lista">Todos os e-mails</h2>
+  <section class="panel" id="sec-lista">
+    <div class="lista-topo">
+      <h2 class="ptitle mono" id="titulo-lista">Todos os e-mails</h2>
+      <input id="busca" type="search" placeholder="Buscar assunto, remetente ou texto" aria-label="Buscar">
+    </div>
     <div class="lista" id="lista"></div>
-    <button type="button" class="mais" id="mais" hidden>Mostrar mais</button>
+    <button type="button" class="ghost mais" id="mais" hidden>Mostrar mais</button>
   </section>
 
-  <p class="sub">Cada conversa da caixa de entrada é classificada pela primeira mensagem, com palavras-chave. Clique num e-mail para ver o motivo e corrigir o tipo; a correção fica salva só para você.</p>
+  <div class="ticker" aria-label="Últimos e-mails"><div class="track" id="track"></div></div>
+  <footer class="mono"><span>Fonte: Gmail · somente leitura</span><span>Clique num e-mail para corrigir o tipo · salvo só para você</span></footer>
 </div>
 
 <script>
@@ -161,7 +218,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.c
       "obrigado","obrigada","agradeco","parabens","elogio","reclamacao","problema","nao recebi","atraso",
       "troca","devolucao","cancelar","cancelamento","feedback","recebi o produto","meu pedido","minha compra",
       "minha encomenda","rastreio","defeito"] },
-    outros: { rotulo: "Outros (avisos e newsletters)", palavras: [
+    outros: { rotulo: "Outros avisos", palavras: [
       "descadastrar","cancelar inscricao","unsubscribe","newsletter","nao responda","no-reply","noreply",
       "alerta de seguranca","verifique seu e-mail","codigo de verificacao","seu codigo","verification code",
       "security alert","验证码"] }
@@ -428,8 +485,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.c
     var s;
     if (!mcp) s = "Conectando ao Gmail…";
     else if (estado.carregando) s = "Lendo a caixa de entrada… " + estado.itens.size + " e-mails";
-    else s = "Caixa de entrada · últimos " + estado.periodo + " dias" + (estado.ultima ? " · atualizado " + fmtData(estado.ultima) : "");
+    else s = "Em espera" + (estado.ultima ? " · atualizado " + fmtData(estado.ultima) : "");
     $("status").textContent = s;
+    $("app").classList.toggle("busy", !!estado.carregando);
+    $("sis").textContent = estado.carregando ? "Sincronizando" : (mcp ? "Sistema ativo" : "Aguardando Gmail");
+    $("per-rot").textContent = estado.periodo + " dias";
     var pr = $("progresso");
     pr.hidden = !estado.carregando;
     var frac = estado.total ? Math.min(1, estado.feitos / (estado.total + estado.periodo)) : 0;
@@ -474,6 +534,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.c
     });
 
     renderGrafico(base);
+    renderCaption(base);
+    renderTicker(base);
 
     var lista = base.filter(function (it) { return !estado.filtro || catDe(it) === estado.filtro; })
       .sort(function (a, b) { return b.data - a.data; });
@@ -488,6 +550,36 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.c
       lista.slice(0, estado.limite).forEach(function (it) { box.appendChild(linha(it)); });
     }
     $("mais").hidden = lista.length <= estado.limite;
+  }
+
+  function plural(n, um, varios) { return n + " " + (n === 1 ? um : varios); }
+  function renderCaption(base) {
+    var p = $("caption");
+    if (!mcp) { p.textContent = "Aguardando a conexão com o Gmail."; return; }
+    if (estado.carregando && !base.length) { p.textContent = "Lendo a sua caixa de entrada."; return; }
+    var hoje = diaISO(new Date()), c = { venda: 0, pergunta: 0, mensagem: 0 };
+    base.forEach(function (it) { if (diaISO(it.data) === hoje && c[catDe(it)] !== undefined) c[catDe(it)]++; });
+    var partes = [];
+    if (c.venda) partes.push(plural(c.venda, "venda", "vendas"));
+    if (c.pergunta) partes.push(plural(c.pergunta, "pergunta de cliente", "perguntas de clientes"));
+    if (c.mensagem) partes.push(plural(c.mensagem, "mensagem de cliente", "mensagens de clientes"));
+    if (!partes.length) { p.textContent = "Nenhuma venda, pergunta ou mensagem de cliente hoje até agora."; return; }
+    var txt = partes.length > 1 ? partes.slice(0, -1).join(", ") + " e " + partes[partes.length - 1] : partes[0];
+    p.textContent = "Hoje chegaram " + txt + ".";
+  }
+  var ultimoTicker = "";
+  function renderTicker(base) {
+    var ult = base.filter(function (it) { return catDe(it) !== "outros"; })
+      .sort(function (a, b) { return b.data - a.data; }).slice(0, 12);
+    var chave = ult.map(function (it) { return it.threadId + catDe(it); }).join("|");
+    if (chave === ultimoTicker) return;
+    ultimoTicker = chave;
+    var t = $("track"); t.textContent = "";
+    if (!ult.length) { t.appendChild(el("span", { text: estado.carregando ? "Sincronizando com o Gmail" : "Sem vendas, perguntas ou mensagens no período" })); return; }
+    ult.forEach(function (it) {
+      var c = catDe(it);
+      t.appendChild(el("span", {}, [el("b", { style: "color:var(--c-" + c + ")", text: CATS[c].rotulo.split(" ")[0] }), it.assunto]));
+    });
   }
 
   function linha(it) {
@@ -518,11 +610,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.c
     if (db && uid) {
       var sel = el("select", { id: "tipo-" + it.threadId, "aria-label": "Tipo do e-mail" });
       ORDEM.forEach(function (k) { var o = el("option", { value: k, text: CATS[k].rotulo }); if (k === c) o.selected = true; sel.appendChild(o); });
-      var salvar = el("button", { type: "button", class: "prim", text: "Salvar tipo" });
+      var salvar = el("button", { type: "button", text: "Salvar tipo" });
       salvar.onclick = function () { salvarCorrecao(it.threadId, sel.value === it.auto.cat ? null : sel.value, salvar); };
       acoes.appendChild(sel); acoes.appendChild(salvar);
       if (estado.correcoes.has(it.threadId)) {
-        var volta = el("button", { type: "button", text: "Voltar à classificação automática" });
+        var volta = el("button", { type: "button", class: "ghost", text: "Voltar ao automático" });
         volta.onclick = function () { salvarCorrecao(it.threadId, null, volta); };
         acoes.appendChild(volta);
       }
@@ -634,6 +726,15 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.c
       });
     }
   } catch (e) {}
+
+  var DIAS_SEM = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  var MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  function relogio() {
+    var d = new Date(), z = function (n) { return String(n).padStart(2, "0"); };
+    $("data-hoje").textContent = DIAS_SEM[d.getDay()] + " · " + z(d.getDate()) + " " + MESES[d.getMonth()] + " " + d.getFullYear();
+    $("relogio").textContent = z(d.getHours()) + ":" + z(d.getMinutes()) + ":" + z(d.getSeconds());
+  }
+  relogio(); setInterval(relogio, 1000);
 
   render();
 
