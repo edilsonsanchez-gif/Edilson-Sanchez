@@ -45,7 +45,8 @@ main{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:28px;
   animation:breathe 4s ease-in-out infinite;overflow:hidden}
 .orb::after{content:"";position:absolute;inset:-30%;background:conic-gradient(from 0deg,transparent,rgba(255,255,255,.28),transparent 30%,rgba(140,90,255,.35),transparent 60%);animation:spin 6s linear infinite;mix-blend-mode:screen}
 @keyframes breathe{50%{transform:scale(1.04)}}
-.busy .orb{animation:talk .45s ease-in-out infinite alternate}
+.busy .orb,.falando .orb{animation:talk .45s ease-in-out infinite alternate}
+#voz[aria-pressed="true"]{background:rgba(61,255,176,.12);border-color:var(--up);color:var(--up)}
 @keyframes talk{from{transform:scale(1);filter:brightness(1)}to{transform:scale(1.08);filter:brightness(1.3)}}
 .state{font-size:13px;color:var(--cyan);min-height:18px;text-align:center}
 .caption{display:flex;gap:12px;align-items:flex-start;max-width:520px;min-height:64px}
@@ -138,7 +139,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
 <div class="app" id="app">
   <header>
     <div class="brand"><b>MEILI</b><span class="mono">Central de atendimento</span></div>
-    <div class="sbar mono"><span><i class="dot"></i><span id="sis">Sistema ativo</span></span><span id="data-hoje"></span><span id="relogio">--:--:--</span></div>
+    <div class="sbar mono"><span><i class="dot"></i><span id="sis">Sistema ativo</span></span><span id="auto"></span><span id="data-hoje"></span><span id="relogio">--:--:--</span></div>
   </header>
 
   <div class="aviso" id="aviso" hidden>
@@ -180,6 +181,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
         </div>
         <select id="conta" aria-label="Conta de e-mail" hidden></select>
         <button type="button" id="atualizar">Atualizar</button>
+        <button type="button" class="ghost" id="voz" aria-pressed="false" hidden>Ligar avisos de voz</button>
       </div>
     </div>
   </main>
@@ -338,6 +340,125 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
 
   var DIA = 86400000, SEMANA = 7 * DIA;
 
+  function montarItem(x, msg) {
+    var m = x.m;
+    msg = msg || {};
+    var email = msg.sender || m.sender || "";
+    var nome = email;
+    (msg.addressDisplayNames || []).forEach(function (a) { if (a && a.emailAddress === email && a.displayName) nome = a.displayName; });
+    var data = msg.date ? new Date(msg.date) : (msg.internalDate ? new Date(Number(msg.internalDate)) : new Date(x.dia.getTime() + 12 * 3600000));
+    var assunto = msg.subject || m.subject || "(sem assunto)";
+    var trecho = msg.snippet || m.snippet || "";
+    var labels = msg.labelIds || m.labelIds || [];
+    var para = (msg.toRecipients || m.toRecipients || [])[0];
+    var conta = typeof para === "string" ? para.trim().toLowerCase() : "";
+    return {
+      threadId: x.t.id, msgId: msg.id || m.id, assunto: assunto, remetente: nome, email: email,
+      data: data, trecho: trecho, count: x.t.messageCount || 1, conta: conta,
+      url: linkSeguro(msg.viewUrl) || linkSeguro(x.t.viewUrl) || linkSeguro(m.viewUrl) ||
+           "https://mail.google.com/mail/#all/" + encodeURIComponent(x.t.id),
+      auto: classificar(assunto, trecho, email, labels)
+    };
+  }
+
+  // ---------- Busca automática a cada minuto ----------
+  var INTERVALO = 60000, proxima = 0, verificando = false;
+  function fmtQ(d) { return d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate(); }
+  function verificarNovos() {
+    proxima = Date.now() + INTERVALO;
+    if (!mcp || estado.carregando || verificando || !estado.ultima) return;
+    verificando = true;
+    var ger = estado.geracao;
+    var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    var query = "in:inbox after:" + fmtQ(hoje) + " before:" + fmtQ(new Date(hoje.getTime() + DIA));
+    chamar("search_threads", { query: query, pageSize: 50, view: "THREAD_VIEW_MINIMAL" }, { staleTime: 0, gcTime: DIA, refresh: true })
+      .then(function (res) {
+        var p = payloadDe(res);
+        var novos = (Array.isArray(p.threads) ? p.threads : []).filter(function (t) { return t && t.id && !estado.itens.has(t.id); });
+        return pool(novos, 3, function (t) {
+          var m = Array.isArray(t.messages) && t.messages[0] ? t.messages[0] : {};
+          var x = { t: t, m: m, dia: hoje };
+          var pr = m.date && m.snippet != null ? Promise.resolve(m)
+            : chamar("get_message", { messageId: m.id || t.id, messageFormat: "MINIMAL" }, { staleTime: SEMANA, gcTime: SEMANA }).then(payloadDe).catch(function () { return m; });
+          return pr.then(function (msg) { x.item = montarItem(x, msg); t._x = x; });
+        }).then(function () {
+          if (ger !== estado.geracao || estado.carregando) return;
+          var chegaram = [];
+          novos.forEach(function (t) {
+            if (!t._x || estado.itens.has(t.id)) return;
+            estado.itens.set(t.id, t._x.item);
+            chegaram.push(t._x.item);
+          });
+          estado.ultima = new Date();
+          if (chegaram.length) anunciar(chegaram);
+          render();
+        });
+      })
+      .catch(function (e) {
+        var code = e && e.code;
+        if (FATAIS[code]) { var f = FATAIS[code]; aviso(f[0], f[1], function () { carregar(true); }); }
+      })
+      .then(function () { verificando = false; });
+  }
+
+  // ---------- Avisos de voz ----------
+  var tts = null, vozLigada = false, falaPendente = null, ultimoAviso = null;
+  try { vozLigada = localStorage.getItem("meili-voz") === "1"; } catch (e) {}
+  var FRASE = {
+    venda: ["uma venda", "vendas"],
+    pergunta: ["uma pergunta de cliente", "perguntas de clientes"],
+    mensagem: ["uma mensagem de comprador", "mensagens de compradores"]
+  };
+  function anunciar(itens) {
+    var imp = itens.filter(function (it) { return catDe(it) !== "outros"; });
+    if (!imp.length) return;
+    var texto;
+    if (imp.length === 1) {
+      var it = imp[0], a = it.assunto.length > 90 ? it.assunto.slice(0, 90) + "…" : it.assunto;
+      texto = "Chegou " + FRASE[catDe(it)][0] + ": " + a + ".";
+    } else {
+      var n = { venda: 0, pergunta: 0, mensagem: 0 };
+      imp.forEach(function (it) { n[catDe(it)]++; });
+      var partes = ["venda", "pergunta", "mensagem"].filter(function (c) { return n[c]; }).map(function (c) {
+        return n[c] === 1 ? FRASE[c][0] : n[c] + " " + FRASE[c][1];
+      });
+      texto = "Chegaram " + (partes.length > 1 ? partes.slice(0, -1).join(", ") + " e " + partes[partes.length - 1] : partes[0]) + ".";
+    }
+    ultimoAviso = { texto: texto, em: Date.now() };
+    falar(texto);
+  }
+  function falar(texto) {
+    if (!tts || !vozLigada) return;
+    if (document.hidden) { falaPendente = texto; return; }
+    falaPendente = null;
+    tts.speak(texto, { language: "pt-BR" }).catch(function (e) {
+      var code = e && e.code;
+      if (code === "no_gesture") falaPendente = texto;
+      else if (code === "not_granted" || code === "unavailable") { tts = null; $("voz").hidden = true; }
+    });
+  }
+  function atualizarBotaoVoz() {
+    var b = $("voz");
+    b.setAttribute("aria-pressed", vozLigada ? "true" : "false");
+    b.textContent = vozLigada ? "Voz ligada" : "Ligar avisos de voz";
+  }
+  $("voz").addEventListener("click", function () {
+    vozLigada = !vozLigada;
+    try { localStorage.setItem("meili-voz", vozLigada ? "1" : "0"); } catch (e) {}
+    atualizarBotaoVoz();
+    if (vozLigada && tts) {
+      tts.speak("Avisos de voz ligados. Vou avisar quando chegar venda, pergunta ou mensagem de comprador.", { language: "pt-BR" }).catch(function (e) {
+        if (e && (e.code === "not_granted" || e.code === "unavailable")) { tts = null; $("voz").hidden = true; }
+      });
+    } else if (tts) { tts.stop().catch(function () {}); }
+  });
+  document.addEventListener("pointerdown", function () { if (falaPendente) falar(falaPendente); }, true);
+  document.addEventListener("keydown", function () { if (falaPendente) falar(falaPendente); }, true);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && falaPendente) falar(falaPendente);
+    if (!document.hidden && Date.now() > proxima) verificarNovos();
+  });
+
   function carregar(forcar) {
     if (!mcp) return;
     var ger = ++estado.geracao;
@@ -397,23 +518,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
             .then(payloadDe).catch(function (e) { tratarErro(e); return m; });
       return p.then(function (msg) {
         if (ger !== estado.geracao) return;
-        msg = msg || {};
-        var email = msg.sender || m.sender || "";
-        var nome = email;
-        (msg.addressDisplayNames || []).forEach(function (a) { if (a && a.emailAddress === email && a.displayName) nome = a.displayName; });
-        var data = msg.date ? new Date(msg.date) : (msg.internalDate ? new Date(Number(msg.internalDate)) : new Date(x.dia.getTime() + 12 * 3600000));
-        var assunto = msg.subject || m.subject || "(sem assunto)";
-        var trecho = msg.snippet || m.snippet || "";
-        var labels = msg.labelIds || m.labelIds || [];
-        var para = (msg.toRecipients || m.toRecipients || [])[0];
-        var conta = typeof para === "string" ? para.trim().toLowerCase() : "";
-        estado.itens.set(x.t.id, {
-          threadId: x.t.id, msgId: msg.id || m.id, assunto: assunto, remetente: nome, email: email,
-          data: data, trecho: trecho, count: x.t.messageCount || 1, conta: conta,
-          url: linkSeguro(msg.viewUrl) || linkSeguro(x.t.viewUrl) || linkSeguro(m.viewUrl) ||
-               "https://mail.google.com/mail/#all/" + encodeURIComponent(x.t.id),
-          auto: classificar(assunto, trecho, email, labels)
-        });
+        estado.itens.set(x.t.id, montarItem(x, msg));
         estado.feitos++;
         agendar();
       });
@@ -433,6 +538,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
         aviso("Alguns e-mails não puderam ser lidos agora (" + falhas + "). O painel mostra o restante.", "Tentar de novo", function () { carregar(true); });
       }
       if (!fatal) estado.ultima = new Date();
+      proxima = Date.now() + INTERVALO;
       render();
     });
   }
@@ -557,6 +663,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     var p = $("caption");
     if (!mcp) { p.textContent = "Aguardando a conexão com o Gmail."; return; }
     if (estado.carregando && !base.length) { p.textContent = "Lendo a sua caixa de entrada."; return; }
+    if (ultimoAviso && Date.now() - ultimoAviso.em < 180000) { p.textContent = ultimoAviso.texto; return; }
     var hoje = diaISO(new Date()), c = { venda: 0, pergunta: 0, mensagem: 0 };
     base.forEach(function (it) { if (diaISO(it.data) === hoje && c[catDe(it)] !== undefined) c[catDe(it)]++; });
     var partes = [];
@@ -733,6 +840,9 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     var d = new Date(), z = function (n) { return String(n).padStart(2, "0"); };
     $("data-hoje").textContent = DIAS_SEM[d.getDay()] + " · " + z(d.getDate()) + " " + MESES[d.getMonth()] + " " + d.getFullYear();
     $("relogio").textContent = z(d.getHours()) + ":" + z(d.getMinutes()) + ":" + z(d.getSeconds());
+    var falta = Math.max(0, Math.ceil((proxima - Date.now()) / 1000));
+    $("auto").textContent = !mcp || !proxima ? "" : (verificando || estado.carregando) ? "Buscando novos" : "Nova busca em " + falta + "s";
+    if (mcp && proxima && Date.now() >= proxima) verificarNovos();
   }
   relogio(); setInterval(relogio, 1000);
 
@@ -755,6 +865,13 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
       return;
     }
     carregar(false);
+  });
+  claude.use("tts").then(function (t) {
+    if (!t) return;
+    tts = t;
+    $("voz").hidden = false;
+    atualizarBotaoVoz();
+    try { t.onState(function (ev) { $("app").classList.toggle("falando", ev && ev.state === "speaking"); }); } catch (e) {}
   });
   Promise.all([claude.use("db"), claude.use("user")]).then(function (r) {
     db = r[0];
