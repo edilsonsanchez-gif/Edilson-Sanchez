@@ -181,7 +181,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
         </div>
         <select id="conta" aria-label="Conta de e-mail" hidden></select>
         <button type="button" id="atualizar">Atualizar</button>
-        <button type="button" class="ghost" id="voz" aria-pressed="false" hidden>Ligar avisos de voz</button>
+        <button type="button" class="ghost" id="voz" aria-pressed="false">Ligar avisos de voz</button>
       </div>
     </div>
   </main>
@@ -403,6 +403,23 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
 
   // ---------- Avisos de voz ----------
   var tts = null, vozLigada = false, falaPendente = null, ultimoAviso = null;
+  // modo: "claude" (voz do Claude), "navegador" (voz do próprio navegador), "negada", "nenhuma" ou "" (verificando)
+  var modoVoz = "", permissoes = null;
+  var temVozNavegador = typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance !== "undefined";
+  function vozNavegador(texto, depois) {
+    try {
+      var u = new SpeechSynthesisUtterance(texto);
+      u.lang = "pt-BR";
+      var vs = window.speechSynthesis.getVoices() || [];
+      var pt = vs.filter(function (v) { return /^pt(-|_)BR/i.test(v.lang); })[0] || vs.filter(function (v) { return /^pt/i.test(v.lang); })[0];
+      if (pt) u.voice = pt;
+      u.onstart = function () { $("app").classList.add("falando"); };
+      u.onend = u.onerror = function () { $("app").classList.remove("falando"); };
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+      return true;
+    } catch (e) { return false; }
+  }
   try { vozLigada = localStorage.getItem("meili-voz") === "1"; } catch (e) {}
   var FRASE = {
     venda: ["uma venda", "vendas"],
@@ -428,29 +445,49 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     falar(texto);
   }
   function falar(texto) {
-    if (!tts || !vozLigada) return;
+    if (!vozLigada || (modoVoz !== "claude" && modoVoz !== "navegador")) return;
     if (document.hidden) { falaPendente = texto; return; }
     falaPendente = null;
+    if (modoVoz === "navegador") { vozNavegador(texto); return; }
     tts.speak(texto, { language: "pt-BR" }).catch(function (e) {
       var code = e && e.code;
       if (code === "no_gesture") falaPendente = texto;
-      else if (code === "not_granted" || code === "unavailable") { tts = null; $("voz").hidden = true; }
+      else if (code === "not_granted") { modoVoz = "negada"; atualizarBotaoVoz(); }
+      else if (code === "unavailable" && temVozNavegador) { modoVoz = "navegador"; vozNavegador(texto); }
     });
   }
   function atualizarBotaoVoz() {
     var b = $("voz");
+    b.disabled = modoVoz === "nenhuma";
+    if (modoVoz === "negada") { b.setAttribute("aria-pressed", "false"); b.textContent = "Voz bloqueada: permitir"; return; }
+    if (modoVoz === "nenhuma") { b.setAttribute("aria-pressed", "false"); b.textContent = "Voz indisponível aqui"; return; }
     b.setAttribute("aria-pressed", vozLigada ? "true" : "false");
     b.textContent = vozLigada ? "Voz ligada" : "Ligar avisos de voz";
   }
+  var CONFIRMA = "Avisos de voz ligados. Vou avisar quando chegar venda, pergunta ou mensagem de comprador.";
   $("voz").addEventListener("click", function () {
+    if (modoVoz === "negada") {
+      if (permissoes && permissoes.manage) permissoes.manage().then(iniciarVoz, function () {
+        aviso("Para ligar a voz, abra o menu Permissões deste artefato e permita a leitura em voz alta.", null);
+      });
+      return;
+    }
     vozLigada = !vozLigada;
     try { localStorage.setItem("meili-voz", vozLigada ? "1" : "0"); } catch (e) {}
     atualizarBotaoVoz();
-    if (vozLigada && tts) {
-      tts.speak("Avisos de voz ligados. Vou avisar quando chegar venda, pergunta ou mensagem de comprador.", { language: "pt-BR" }).catch(function (e) {
-        if (e && (e.code === "not_granted" || e.code === "unavailable")) { tts = null; $("voz").hidden = true; }
+    if (!vozLigada) {
+      if (modoVoz === "claude") tts.stop().catch(function () {});
+      if (modoVoz === "navegador") window.speechSynthesis.cancel();
+      return;
+    }
+    if (modoVoz === "navegador") { vozNavegador(CONFIRMA); return; }
+    if (modoVoz === "claude") {
+      tts.speak(CONFIRMA, { language: "pt-BR" }).catch(function (e) {
+        var code = e && e.code;
+        if (code === "not_granted") { modoVoz = "negada"; atualizarBotaoVoz(); }
+        else if (code === "unavailable" && temVozNavegador) { modoVoz = "navegador"; vozNavegador(CONFIRMA); }
       });
-    } else if (tts) { tts.stop().catch(function () {}); }
+    }
   });
   document.addEventListener("pointerdown", function () { if (falaPendente) falar(falaPendente); }, true);
   document.addEventListener("keydown", function () { if (falaPendente) falar(falaPendente); }, true);
@@ -866,13 +903,25 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     }
     carregar(false);
   });
-  claude.use("tts").then(function (t) {
-    if (!t) return;
-    tts = t;
-    $("voz").hidden = false;
-    atualizarBotaoVoz();
-    try { t.onState(function (ev) { $("app").classList.toggle("falando", ev && ev.state === "speaking"); }); } catch (e) {}
-  });
+  function iniciarVoz() {
+    Promise.all([claude.use("tts"), claude.use("permissions")]).then(function (r) {
+      var t = r[0]; permissoes = r[1];
+      if (t) {
+        tts = t; modoVoz = "claude";
+        try { t.onState(function (ev) { $("app").classList.toggle("falando", ev && ev.state === "speaking"); }); } catch (e) {}
+        atualizarBotaoVoz();
+        return;
+      }
+      var st = permissoes && permissoes.state ? permissoes.state("tts").catch(function () { return "unavailable"; }) : Promise.resolve("unavailable");
+      return st.then(function (estadoTts) {
+        if (estadoTts === "denied") modoVoz = "negada";
+        else modoVoz = temVozNavegador ? "navegador" : "nenhuma";
+        atualizarBotaoVoz();
+      });
+    }).catch(function () { modoVoz = temVozNavegador ? "navegador" : "nenhuma"; atualizarBotaoVoz(); });
+  }
+  atualizarBotaoVoz();
+  iniciarVoz();
   Promise.all([claude.use("db"), claude.use("user")]).then(function (r) {
     db = r[0];
     var user = r[1];
