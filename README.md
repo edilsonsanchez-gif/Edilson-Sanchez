@@ -101,7 +101,7 @@ A janela mostra dois endereços:
 ## Imprimir pelo próprio computador (padrão)
 
 Ao tocar em **Imprimir**, a página monta as etiquetas no tamanho exato (50×25 mm, 2 colunas lado a lado, ou seja,
-uma "folha" de **82×25 mm** por fileira) e abre a **janela de impressão** do computador. Funciona com o driver normal da
+uma "folha" de **101×25 mm** por fileira) e abre a **janela de impressão** do computador. Funciona com o driver normal da
 Zebra (ZDesigner) ou com qualquer impressora de etiquetas, e também dá para escolher **Salvar como PDF**.
 
 Na janela de impressão (Chrome/Edge):
@@ -144,7 +144,7 @@ python -m unittest discover -s tests
 ## Versão para o celular (sem computador)
 
 `online/etiquetas-imei.html` é a versão publicada como página privada no claude.ai: abre pelo link no celular,
-lê os códigos de barras da foto e gera um **PDF** com as etiquetas (cada página = uma fileira de 82×25 mm).
+lê os códigos de barras da foto e gera um **PDF** com as etiquetas (cada página = uma fileira de 101×25 mm).
 Imprima o PDF em tamanho real (100%), sem margens. Essa versão lê só códigos de barras (não tem leitura de texto/OCR).
 
 ### Impressora Elgin L42DT (arquivo .txt)
