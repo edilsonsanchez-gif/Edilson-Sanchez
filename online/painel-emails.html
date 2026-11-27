@@ -24,6 +24,8 @@ header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px 
 .brand{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line);padding-bottom:6px;flex-wrap:wrap}
 .brand b{font-weight:700;font-size:30px;letter-spacing:.22em;color:var(--cyan);text-shadow:0 0 14px rgba(79,216,255,.6)}
 .brand span{font-size:11px;color:var(--text2)}
+.trocar{align-self:center;font-size:11px;color:var(--cyan);text-decoration:none;border:1px solid var(--cyan);padding:6px 10px;transition:background .15s,box-shadow .15s}
+.trocar:hover{background:rgba(79,216,255,.12);box-shadow:0 0 14px rgba(79,216,255,.35)}
 .sbar{display:flex;gap:18px;font-size:12px;color:var(--text2);flex-wrap:wrap}
 .sbar .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--up);box-shadow:0 0 8px var(--up);margin-right:6px;animation:blink 2s infinite}
 .busy .sbar .dot{background:var(--warn);box-shadow:0 0 8px var(--warn)}
@@ -138,7 +140,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
 
 <div class="app" id="app">
   <header>
-    <div class="brand"><b>MEILI</b><span class="mono">Central de atendimento</span></div>
+    <div class="brand"><b>MEILI</b><span class="mono">Central de atendimento</span><a class="trocar mono" href="https://claude.ai/artifact/VNV6YYzNRraXYkAszxz5iP" target="_blank" rel="noopener" title="Abrir o Jarbas">Ir para Jarbas ↗</a></div>
     <div class="sbar mono"><span><i class="dot"></i><span id="sis">Sistema ativo</span></span><span id="auto"></span><span id="data-hoje"></span><span id="relogio">--:--:--</span></div>
   </header>
 
