@@ -255,35 +255,38 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     });
   });
 
-  function classificar(assunto, texto, remetente, labels) {
-    var a = normalizar(assunto), t = normalizar(texto), r = normalizar(remetente);
-    var pts = { venda: 0, pergunta: 0, mensagem: 0, outros: 0 }, motivos = [];
-    ORDEM.forEach(function (c) {
-      PADROES[c].forEach(function (x) {
-        if (x.re.test(a)) { pts[c] += 2; motivos.push("“" + x.p + "” no assunto"); }
-        else if (x.re.test(t)) { pts[c] += 1; motivos.push("“" + x.p + "” no texto"); }
-        else if (c === "outros" && x.re.test(r)) { pts[c] += 1; motivos.push("“" + x.p + "” no remetente"); }
-      });
-    });
-    var trecho = a + " " + t;
-    SAUDACOES.forEach(function (s) { trecho = trecho.split(s).join(" "); });
-    if (trecho.indexOf("?") >= 0) { pts.pergunta += 2; motivos.push("contém um “?”"); }
-    (labels || []).forEach(function (l) {
-      if (ROTULOS_AUTOMATICOS[l]) { pts.outros += 2; motivos.push("aba " + ROTULOS_AUTOMATICOS[l] + " do Gmail"); }
-    });
-    if (pts.venda > 0) pts.outros = 0; // venda enviada por no-reply continua sendo venda
-    // Avisos de marketplace (Mercado Livre, Shopee...) chegam de no-reply e na aba Atualizações:
-    // se trazem venda, pergunta ou mensagem, não são "outros".
-    if (MARKETPLACE.test(r) && (pts.venda || pts.pergunta || pts.mensagem)) { pts.outros = 0; motivos.push("aviso de marketplace"); }
-    var melhor = DESEMPATE.slice().sort(function (x, y) { return pts[y] - pts[x] || DESEMPATE.indexOf(x) - DESEMPATE.indexOf(y); })[0];
-    if (pts[melhor] === 0) {
-      // Sem palavra-chave: e-mail automático (abas Promoções/Atualizações/Social ou remetente de envio em massa) vira "outros";
-      // e-mail de pessoa, na aba Principal, vira mensagem de cliente.
-      var automatico = (labels || []).some(function (l) { return /^CATEGORY_(PROMOTIONS|UPDATES|SOCIAL|FORUMS)$/.test(l); }) || AUTOMATICO.test(r);
-      melhor = automatico ? "outros" : "mensagem";
-      motivos.push(automatico ? "nenhuma palavra-chave e parece envio automático" : "nenhuma palavra-chave: tipo padrão");
+  // Regras definidas pelo Edilson para os e-mails do Mercado Livre / Mercado Pago:
+  //  - título com "você vendeu"            → venda de produto
+  //  - título com "fizeram uma pergunta"    → pergunta de cliente
+  //  - título com "mensagem"/"mensagens" e corpo com "disse" e o botão "Responder mensagem" → mensagem de cliente
+  //  - qualquer outro                       → outros avisos
+  function classificar(assunto, texto, remetente, labels, corpo) {
+    var a = normalizar(assunto), c = normalizar(corpo || "");
+    if (a.indexOf("voce vendeu") >= 0) return { cat: "venda", motivos: ["título contém “você vendeu”"] };
+    if (a.indexOf("fizeram uma pergunta") >= 0) return { cat: "pergunta", motivos: ["título contém “fizeram uma pergunta”"] };
+    if (/mensage/.test(a)) {
+      var disse = c.indexOf("disse") >= 0, botao = /responder mensage/.test(c);
+      if (disse && botao) return { cat: "mensagem", motivos: ["título fala de mensagem", "corpo traz “disse” e o botão “Responder mensagem”"] };
+      return { cat: "outros", motivos: ["título fala de mensagem, mas o corpo não traz " + (!disse && !botao ? "“disse” nem o botão “Responder mensagem”" : !disse ? "“disse”" : "o botão “Responder mensagem”")] };
     }
-    return { cat: melhor, motivos: motivos };
+    return { cat: "outros", motivos: ["não é “você vendeu”, “fizeram uma pergunta” nem mensagem de cliente"] };
+  }
+
+  // Lê o e-mail; para títulos com "mensagem" traz também o corpo, para conferir "disse" e o botão de responder.
+  function precisaCorpo(m) { return /mensage/.test(normalizar(m.subject || "")); }
+  function lerEmail(m, id, aoFalhar) {
+    var corpo = precisaCorpo(m);
+    if (!corpo && m.date && m.snippet != null) return Promise.resolve(m);
+    return chamar("get_message", { messageId: m.id || id, messageFormat: corpo ? "PLAIN_TEXT" : "MINIMAL" }, { staleTime: SEMANA, gcTime: SEMANA })
+      .then(payloadDe).catch(function (e) { if (aoFalhar) aoFalhar(e); return m; });
+  }
+  // Tira do corpo o que o cliente escreveu (entre "fulano disse:" e "Responder mensagens") e o link do botão.
+  function extrairMensagem(corpo) {
+    if (!corpo) return null;
+    var mt = /disse:\s*([\s\S]*?)(?:\[[^\]]*)?Responder mensage/i.exec(corpo);
+    var texto = mt ? mt[1].replace(/\|/g, " ").replace(/\[|\]\([^)]*\)/g, " ").replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").replace(/\n{2,}/g, "\n").trim() : "";
+    var lk = /Responder mensage[^\]]*\]\((https:\/\/[^)\s]+)\)/i.exec(corpo);
+    return { texto: texto, link: lk ? lk[1] : null };
   }
 
   // ---------- Estado ----------
@@ -378,6 +381,9 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     var data = msg.date ? new Date(msg.date) : (msg.internalDate ? new Date(Number(msg.internalDate)) : new Date(x.dia.getTime() + 12 * 3600000));
     var assunto = msg.subject || m.subject || "(sem assunto)";
     var trecho = msg.snippet || m.snippet || "";
+    var corpo = typeof msg.plaintextBody === "string" ? msg.plaintextBody : "";
+    var extra = extrairMensagem(corpo);
+    if (extra && extra.texto) trecho = extra.texto;
     var labels = msg.labelIds || m.labelIds || [];
     var para = (msg.toRecipients || m.toRecipients || [])[0];
     var conta = typeof para === "string" ? para.trim().toLowerCase() : "";
@@ -386,7 +392,8 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
       data: data, trecho: trecho, count: x.t.messageCount || 1, conta: conta,
       url: linkSeguro(msg.viewUrl) || linkSeguro(x.t.viewUrl) || linkSeguro(m.viewUrl) ||
            "https://mail.google.com/mail/#all/" + encodeURIComponent(x.t.id),
-      auto: classificar(assunto, trecho, email, labels)
+      responder: extra && extra.link ? linkSeguro(extra.link) : null,
+      auto: classificar(assunto, trecho, email, labels, corpo)
     };
   }
 
@@ -410,8 +417,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
         return pool(novos, 3, function (t) {
           var m = Array.isArray(t.messages) && t.messages[0] ? t.messages[0] : {};
           var x = { t: t, m: m, dia: hoje };
-          var pr = m.date && m.snippet != null ? Promise.resolve(m)
-            : chamar("get_message", { messageId: m.id || t.id, messageFormat: "MINIMAL" }, { staleTime: SEMANA, gcTime: SEMANA }).then(payloadDe).catch(function () { return m; });
+          var pr = lerEmail(m, t.id, null);
           return pr.then(function (msg) { x.item = montarItem(x, msg); t._x = x; });
         }).then(function () {
           if (ger !== estado.geracao || estado.carregando) return;
@@ -582,10 +588,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     function detalhar(x) {
       if (fatal || ger !== estado.geracao) return Promise.resolve();
       var m = x.m;
-      var pronto = m.date && m.snippet != null;
-      var p = pronto ? Promise.resolve(m)
-        : chamar("get_message", { messageId: m.id || x.t.id, messageFormat: "MINIMAL" }, { staleTime: SEMANA, gcTime: SEMANA })
-            .then(payloadDe).catch(function (e) { tratarErro(e); return m; });
+      var p = lerEmail(m, x.t.id, tratarErro);
       return p.then(function (msg) {
         if (ger !== estado.geracao) return;
         estado.itens.set(x.t.id, montarItem(x, msg));
@@ -783,6 +786,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     d.appendChild(el("div", { class: "sub", text: "De " + it.remetente + (it.email && it.email !== it.remetente ? " <" + it.email + ">" : "") + " · " + fmtData(it.data) }));
     if (it.trecho) d.appendChild(el("div", { class: "texto", text: it.trecho + (it.trecho.length >= 150 ? "…" : "") }));
     var acoes = el("div", { class: "acoes" });
+    if (it.responder) acoes.appendChild(el("a", { href: it.responder, target: "_blank", rel: "noopener", text: "Responder no Mercado Livre ↗" }));
     acoes.appendChild(el("a", { href: it.url, target: "_blank", rel: "noopener", text: "Abrir no Gmail ↗" }));
     if (db && uid) {
       var sel = el("select", { id: "tipo-" + it.threadId, "aria-label": "Tipo do e-mail" });
