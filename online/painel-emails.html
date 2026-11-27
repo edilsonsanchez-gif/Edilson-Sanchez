@@ -108,6 +108,8 @@ select,#busca{font-family:var(--mono);font-size:13px;letter-spacing:.06em;backgr
 .cab:hover{background:none}
 .tag{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
 .assunto,.rem>span{display:block}
+.c-tipo{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.loja{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan);border:1px solid var(--line);padding:2px 6px}
 .assunto{font-weight:700;font-size:17px;overflow-wrap:anywhere}
 .trecho{color:var(--text2);font-size:15px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
 .rem{overflow-wrap:anywhere;font-size:15px}
@@ -367,6 +369,13 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
 
   var DIA = 86400000, SEMANA = 7 * DIA;
 
+  // Cada conta encaminhada é uma loja.
+  var LOJAS = {
+    "thau9dades26@gmail.com": "Loja Tatá Novidades",
+    "paulovidades@gmail.com": "Loja Pepe Variedades",
+    "limpacontavictor@gmail.com": "Loja Barba Utensílios"
+  };
+
   // Só e-mails do Mercado Livre e do Mercado Pago (inclui subdomínios como info.mercadolivre.com.br).
   // Para voltar a ver todos os remetentes, deixe SO_REMETENTES vazio ("").
   var SO_REMETENTES = "{from:mercadolivre.com.br from:mercadolivre.com from:mercadolibre.com from:mercadopago.com.br from:mercadopago.com}";
@@ -385,11 +394,13 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     var extra = extrairMensagem(corpo);
     if (extra && extra.texto) trecho = extra.texto;
     var labels = msg.labelIds || m.labelIds || [];
-    var para = (msg.toRecipients || m.toRecipients || [])[0];
-    var conta = typeof para === "string" ? para.trim().toLowerCase() : "";
+    var dest = (msg.toRecipients || m.toRecipients || []).map(function (e) { return typeof e === "string" ? e.trim().toLowerCase() : ""; });
+    // A conta é a de uma loja, se o e-mail foi para uma delas; senão, o primeiro destinatário.
+    var conta = dest.filter(function (e) { return LOJAS[e]; })[0] || dest[0] || "";
+    var loja = LOJAS[conta] || "";
     return {
       threadId: x.t.id, msgId: msg.id || m.id, assunto: assunto, remetente: nome, email: email,
-      data: data, trecho: trecho, count: x.t.messageCount || 1, conta: conta,
+      data: data, trecho: trecho, count: x.t.messageCount || 1, conta: conta, loja: loja,
       url: linkSeguro(msg.viewUrl) || linkSeguro(x.t.viewUrl) || linkSeguro(m.viewUrl) ||
            "https://mail.google.com/mail/#all/" + encodeURIComponent(x.t.id),
       responder: extra && extra.link ? linkSeguro(extra.link) : null,
@@ -470,7 +481,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     var texto;
     if (imp.length === 1) {
       var it = imp[0], a = it.assunto.length > 90 ? it.assunto.slice(0, 90) + "…" : it.assunto;
-      texto = "Chegou " + FRASE[catDe(it)][0] + ": " + a + ".";
+      texto = "Chegou " + FRASE[catDe(it)][0] + (it.loja ? " na " + it.loja : "") + ": " + a + ".";
     } else {
       var n = { venda: 0, pergunta: 0, mensagem: 0 };
       imp.forEach(function (it) { n[catDe(it)]++; });
@@ -672,7 +683,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     var out = [];
     estado.itens.forEach(function (it) {
       if (estado.conta && it.conta !== estado.conta) return;
-      if (b && normalizar(it.assunto + " " + it.remetente + " " + it.email + " " + it.trecho).indexOf(b) < 0) return;
+      if (b && normalizar(it.assunto + " " + it.remetente + " " + it.email + " " + it.trecho + " " + (it.loja || "")).indexOf(b) < 0) return;
       out.push(it);
     });
     return out;
@@ -705,7 +716,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     sel.setAttribute("data-chave", chave);
     sel.textContent = "";
     sel.appendChild(el("option", { value: "", text: "Todas as contas" }));
-    lista.forEach(function (x) { sel.appendChild(el("option", { value: x[0], text: x[0] + " (" + x[1] + ")" })); });
+    lista.forEach(function (x) { sel.appendChild(el("option", { value: x[0], text: (LOJAS[x[0]] || x[0]) + " (" + x[1] + ")" })); });
     if (estado.conta && !cont.has(estado.conta)) sel.appendChild(el("option", { value: estado.conta, text: estado.conta }));
     sel.value = estado.conta;
   }
@@ -784,7 +795,10 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     var c = catDe(it), aberto = estado.aberto === it.threadId;
     var frag = document.createDocumentFragment();
     var b = el("button", { type: "button", class: "linha", "aria-expanded": aberto ? "true" : "false" }, [
-      el("span", { class: "tag c-tipo" }, [dot(c), CATS[c].rotulo + (estado.correcoes.has(it.threadId) ? " ✎" : "")]),
+      el("span", { class: "c-tipo" }, [
+        el("span", { class: "tag" }, [dot(c), CATS[c].rotulo + (estado.correcoes.has(it.threadId) ? " ✎" : "")]),
+        it.loja ? el("span", { class: "loja", text: it.loja }) : null
+      ]),
       el("span", {}, [
         el("span", { class: "assunto", text: it.assunto + (it.count > 1 ? "  (" + it.count + ")" : "") }),
         el("span", { class: "trecho", text: it.trecho })
@@ -801,6 +815,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
   function detalhe(it) {
     var c = catDe(it);
     var d = el("div", { class: "detalhe" });
+    if (it.loja) d.appendChild(el("div", { class: "loja", text: it.loja }));
     d.appendChild(el("div", { class: "sub", text: "De " + it.remetente + (it.email && it.email !== it.remetente ? " <" + it.email + ">" : "") + " · " + fmtData(it.data) }));
     if (it.trecho) d.appendChild(el("div", { class: "texto", text: it.trecho + (it.trecho.length >= 150 ? "…" : "") }));
     var acoes = el("div", { class: "acoes" });
