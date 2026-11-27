@@ -203,7 +203,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
   </section>
 
   <div class="ticker" aria-label="Últimos e-mails"><div class="track" id="track"></div></div>
-  <footer class="mono"><span>Fonte: Gmail · somente leitura</span><span>Clique num e-mail para corrigir o tipo · salvo só para você</span></footer>
+  <footer class="mono"><span>Fonte: Gmail · só Mercado Livre e Mercado Pago · somente leitura</span><span>Clique num e-mail para corrigir o tipo · salvo só para você</span></footer>
 </div>
 
 <script>
@@ -364,6 +364,11 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
 
   var DIA = 86400000, SEMANA = 7 * DIA;
 
+  // Só e-mails do Mercado Livre e do Mercado Pago (inclui subdomínios como info.mercadolivre.com.br).
+  // Para voltar a ver todos os remetentes, deixe SO_REMETENTES vazio ("").
+  var SO_REMETENTES = "{from:mercadolivre.com.br from:mercadolivre.com from:mercadolibre.com from:mercadopago.com.br from:mercadopago.com}";
+  var REMETENTE_OK = /mercadoli(vre|bre)\.com|mercadopago\.com/i;
+
   function montarItem(x, msg) {
     var m = x.m;
     msg = msg || {};
@@ -396,11 +401,12 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     verificando = true;
     var ger = estado.geracao;
     var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-    var query = "in:inbox after:" + fmtQ(hoje) + " before:" + fmtQ(new Date(hoje.getTime() + DIA));
+    var query = "in:inbox " + SO_REMETENTES + " after:" + fmtQ(hoje) + " before:" + fmtQ(new Date(hoje.getTime() + DIA));
     chamar("search_threads", { query: query, pageSize: 50, view: "THREAD_VIEW_MINIMAL" }, { staleTime: 0, gcTime: DIA, refresh: true })
       .then(function (res) {
         var p = payloadDe(res);
-        var novos = (Array.isArray(p.threads) ? p.threads : []).filter(function (t) { return t && t.id && !estado.itens.has(t.id); });
+        var novos = (Array.isArray(p.threads) ? p.threads : []).filter(function (t) { return t && t.id && !estado.itens.has(t.id) &&
+          !(SO_REMETENTES && t.messages && t.messages[0] && t.messages[0].sender && !REMETENTE_OK.test(t.messages[0].sender)); });
         return pool(novos, 3, function (t) {
           var m = Array.isArray(t.messages) && t.messages[0] ? t.messages[0] : {};
           var x = { t: t, m: m, dia: hoje };
@@ -544,7 +550,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
 
     function buscarDia(d, idx) {
       if (fatal || ger !== estado.geracao) return Promise.resolve();
-      var query = "in:inbox after:" + fmt(d) + " before:" + fmt(new Date(d.getTime() + DIA));
+      var query = "in:inbox " + SO_REMETENTES + " after:" + fmt(d) + " before:" + fmt(new Date(d.getTime() + DIA));
       var cache = idx === 0 ? { staleTime: forcar ? 0 : 120000, gcTime: DIA, refresh: !!forcar }
                             : { staleTime: forcar && idx === 1 ? 0 : 6 * 3600000, gcTime: SEMANA };
       var paginas = 0;
@@ -558,6 +564,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
           var novos = [];
           threads.forEach(function (t) {
             if (!t || !t.id || vistos.has(t.id)) return;
+            if (SO_REMETENTES && t.messages && t.messages[0] && t.messages[0].sender && !REMETENTE_OK.test(t.messages[0].sender)) return;
             vistos.add(t.id);
             var m = Array.isArray(t.messages) && t.messages[0] ? t.messages[0] : {};
             novos.push({ t: t, m: m, dia: d });
