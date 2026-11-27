@@ -76,7 +76,7 @@ details summary{cursor:pointer;font-weight:600}
 <div class="app">
   <header>
     <h1>Etiquetas IMEI</h1>
-    <p>Foto da caixa → IMEI 1 e IMEI 2 → PDF de etiquetas <span id="tamanho">40×25 mm, 2 colunas</span></p>
+    <p>Foto da caixa → IMEI 1 e IMEI 2 → arquivo de etiquetas <span id="tamanho">40×25 mm, 2 colunas</span></p>
   </header>
 
   <div class="cols">
@@ -111,7 +111,7 @@ details summary{cursor:pointer;font-weight:600}
         <button id="btnLimpar">Limpar</button>
       </div>
       <div class="linha" style="margin-top:10px">
-        <button id="btnPdf" class="principal">Gerar PDF da etiqueta</button>
+        <button id="btnPdf" class="principal">Baixar etiqueta</button>
         <button id="btnAdd">＋ Adicionar à lista</button>
       </div>
     </section>
@@ -127,7 +127,7 @@ details summary{cursor:pointer;font-weight:600}
     <div class="linha" style="justify-content:space-between;align-items:center;margin-bottom:12px">
       <h2 style="margin:0;flex:0 1 auto">Lista para imprimir <span id="listaQtd" class="legenda"></span></h2>
       <div class="linha" style="flex:0 1 auto">
-        <button id="btnPdfLista" class="principal" disabled>PDF da lista</button>
+        <button id="btnPdfLista" class="principal" disabled>Baixar lista</button>
         <button id="btnEsvaziar" disabled>Esvaziar</button>
       </div>
     </div>
@@ -139,11 +139,22 @@ details summary{cursor:pointer;font-weight:600}
   </section>
 
   <section class="card">
-    <h2>Como imprimir o PDF</h2>
-    <ol class="como">
-      <li>Toque em <b>Gerar PDF</b> e salve ou compartilhe o arquivo.</li>
-      <li>Abra o PDF e escolha <b>Imprimir</b>. No celular, a Zebra precisa do serviço de impressão da Zebra instalado; ou mande o PDF para o computador ligado à Zebra.</li>
-      <li>Na impressão, use <b>tamanho real / 100%</b>, sem margens. Cada página do PDF é uma fileira do rolo (<span id="papelTxt">82×25 mm</span>).</li>
+    <h2>Formato do arquivo</h2>
+    <div class="campo"><label for="formato">Baixar como</label>
+      <select id="formato">
+        <option value="zpl">.txt para Elgin L42DT / Zebra (comandos ZPL)</option>
+        <option value="epl">.txt para Elgin L42DT / Zebra (comandos EPL)</option>
+        <option value="pdf">.pdf para imprimir pela janela de impressão</option>
+      </select></div>
+    <ol class="como" id="comoTxt">
+      <li>Toque em <b>Baixar etiqueta</b>. Sai um arquivo <b>.txt</b> com os comandos da etiqueta (a impressora entende ZPL e EPL).</li>
+      <li>No computador ligado à Elgin L42DT, arraste o .txt para cima do atalho <b>Imprimir TXT na Elgin.bat</b> (ou dê dois cliques nele para imprimir o .txt mais recente da pasta Downloads).</li>
+      <li>Não abra o .txt no Bloco de Notas para imprimir: ele imprimiria as letras dos comandos em vez da etiqueta.</li>
+      <li>Se a impressão sair estranha ou em branco, troque para <b>EPL</b> e tente de novo.</li>
+    </ol>
+    <ol class="como" id="comoPdf" hidden>
+      <li>Toque em <b>Baixar etiqueta</b> e salve ou compartilhe o PDF.</li>
+      <li>Abra o PDF e escolha <b>Imprimir</b>, em <b>tamanho real / 100%</b>, sem margens. Cada página é uma fileira do rolo (<span id="papelTxt">82×25 mm</span>).</li>
     </ol>
   </section>
 
@@ -159,8 +170,9 @@ details summary{cursor:pointer;font-weight:600}
         <div><label for="espaco_colunas_mm">Espaço entre colunas (mm)</label><input id="espaco_colunas_mm" type="number" step="0.5" min="0" max="20"></div>
         <div><label for="margem_esquerda_mm">Margem esquerda (mm)</label><input id="margem_esquerda_mm" type="number" step="0.5" min="0" max="50"></div>
         <div><label for="ajuste_vertical_mm">Ajuste vertical (mm)</label><input id="ajuste_vertical_mm" type="number" step="0.5" min="-10" max="10"></div>
+        <div><label for="gap_mm">Espaço entre etiquetas no rolo (mm, só EPL)</label><input id="gap_mm" type="number" step="0.5" min="0" max="10"></div>
       </div>
-      <button id="btnTeste" style="margin-top:12px">PDF de teste</button>
+      <button id="btnTeste" style="margin-top:12px">Baixar etiqueta de teste</button>
     </details>
   </section>
 </div>
@@ -178,7 +190,7 @@ details summary{cursor:pointer;font-weight:600}
   const digitos = (s) => String(s || "").replace(/\D/g, "");
   const ler = (k, p) => { try { const v = localStorage.getItem(k); return v == null ? p : JSON.parse(v); } catch (_) { return p; } };
   const gravar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} };
-  const PADRAO = { layout: "separado", largura_mm: 40, altura_mm: 25, colunas: 2, espaco_colunas_mm: 2, margem_esquerda_mm: 0, ajuste_vertical_mm: 0 };
+  const PADRAO = { formato: "zpl", gap_mm: 3, layout: "separado", largura_mm: 40, altura_mm: 25, colunas: 2, espaco_colunas_mm: 2, margem_esquerda_mm: 0, ajuste_vertical_mm: 0 };
   const cfg = Object.assign({}, PADRAO, ler("etq-imei-cfg", {}));
   let lista = ler("etq-imei-lista", []).filter((f) => f && (f.imei1 || f.imei2));
 
@@ -295,23 +307,95 @@ details summary{cursor:pointer;font-weight:600}
     return { blob: doc.output("blob"), qtd: etqs.length, paginas: Math.ceil(etqs.length / cfg.colunas) };
   }
 
-  async function salvarPdf(itens, nome) {
-    let r;
-    try { r = gerarPdf(itens); } catch (e) { aviso(e.message, true); return false; }
+  // ---------- .txt com comandos para a impressora (Elgin L42DT, Zebra): 203 dpi = 8 pontos por mm ----------
+  const PMM = 8;
+  const ascii = (t) => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7e]/g, " ");
+  function fileiras(itens) {
+    const etqs = montar(itens);
+    if (!etqs.length) throw new Error("Nenhuma etiqueta para gerar.");
+    const linhas = [];
+    for (let i = 0; i < etqs.length; i += cfg.colunas) linhas.push(etqs.slice(i, i + cfg.colunas));
+    // Fileiras iguais seguidas viram uma só com quantidade (imprime mais rápido)
+    const blocos = [];
+    for (const f of linhas) {
+      const chave = JSON.stringify(f);
+      if (blocos.length && blocos[blocos.length - 1].chave === chave) blocos[blocos.length - 1].qtd++;
+      else blocos.push({ chave, fileira: f, qtd: 1 });
+    }
+    return { blocos, qtd: etqs.length };
+  }
+  function percorrer(fileira, cb) {
+    const W = cfg.largura_mm, H = cfg.altura_mm;
+    fileira.forEach((e, c) => {
+      const x0 = cfg.margem_esquerda_mm + c * (W + cfg.espaco_colunas_mm);
+      for (const p of medidas(e, W, H)) {
+        const y = Math.max(0, Math.round((p.y + cfg.ajuste_vertical_mm) * PMM)), h = Math.round(p.h * PMM);
+        if (p.tipo === "texto") cb({ tipo: "texto", x: Math.round((x0 + p.x) * PMM), y, w: Math.round(p.w * PMM), h, txt: ascii(p.txt) });
+        else {
+          const Wd = Math.round(W * PMM), mods = modulosCode128(p.num).length, m = Math.max(1, Math.floor(Wd / (mods + 20)));
+          cb({ tipo: "barra", x: Math.round(x0 * PMM) + Math.floor((Wd - mods * m) / 2), y, h, m, num: p.num });
+        }
+      }
+    });
+  }
+  const larguraDots = () => Math.round(larguraPagina() * PMM), alturaDots = () => Math.round(cfg.altura_mm * PMM);
+  function gerarZpl(itens) {
+    const { blocos, qtd } = fileiras(itens);
+    const sub = (n) => (n.length % 2 ? ">;" + n.slice(0, -1) + ">6" + n.slice(-1) : ">;" + n);
+    const partes = blocos.map(({ fileira, qtd: q }) => {
+      let z = `^XA^PW${larguraDots()}^LL${alturaDots()}^LH0,0`;
+      percorrer(fileira, (f) => {
+        if (f.tipo === "texto") z += `^FO${f.x},${f.y}^A0N,${f.h},${Math.max(8, Math.round(f.h * 0.85))}^FB${f.w},1,0,C^FD${f.txt.replace(/[\^~]/g, " ")}^FS`;
+        else z += `^BY${f.m},3,${f.h}^FO${f.x},${f.y}^BCN,${f.h},N,N,N^FD${sub(f.num)}^FS`;
+      });
+      return z + `^PQ${q},0,1,Y^XZ`;
+    });
+    return { texto: partes.join("\r\n") + "\r\n", qtd };
+  }
+  // EPL: fontes internas 1 a 4 (largura x altura em pontos, já com o espaço entre letras)
+  const FONTES_EPL = [[4, 14, 24], [3, 12, 20], [2, 10, 16], [1, 8, 12]];
+  function gerarEpl(itens) {
+    const { blocos, qtd } = fileiras(itens);
+    const partes = blocos.map(({ fileira, qtd: q }) => {
+      let e = `\r\nN\r\nq${larguraDots()}\r\nQ${alturaDots()},${Math.round(cfg.gap_mm * PMM)}\r\n`;
+      percorrer(fileira, (f) => {
+        if (f.tipo === "texto") {
+          const fonte = FONTES_EPL.find(([, cw, ch]) => ch <= f.h + 2 && cw * f.txt.length <= f.w) || FONTES_EPL[3];
+          const largura = fonte[1] * f.txt.length;
+          const x = f.x + Math.max(0, Math.floor((f.w - largura) / 2)), y = f.y + Math.max(0, f.h - fonte[2]);
+          e += `A${x},${y},0,${fonte[0]},1,1,N,"${f.txt.replace(/["\\]/g, " ")}"\r\n`;
+        } else e += `B${f.x},${f.y},0,1,${f.m},${f.m * 2},${f.h},N,"${f.num}"\r\n`;
+      });
+      return e + `P${q}\r\n`;
+    });
+    return { texto: partes.join(""), qtd };
+  }
+
+  async function salvarArquivo(itens, base) {
+    const formato = cfg.formato || "zpl";
+    let r, nome = base + (formato === "pdf" ? ".pdf" : ".txt");
+    try {
+      if (formato === "pdf") r = gerarPdf(itens);
+      else { const g = formato === "epl" ? gerarEpl(itens) : gerarZpl(itens); r = { blob: new Blob([g.texto], { type: "text/plain" }), qtd: g.qtd }; }
+    } catch (e) { aviso(e.message, true); return false; }
+    return entregar(r, nome, formato === "pdf" ? "PDF" : "Arquivo .txt");
+  }
+
+  async function entregar(r, nome, rotulo) {
     const dl = window.claude ? await window.claude.use("downloads") : undefined;
     if (dl === null) { aviso("Este app não deixa salvar arquivos. Abra o link no navegador do celular ou no computador.", true); return false; }
     if (dl) {
-      try { await dl.save({ filename: nome, data: r.blob }); aviso(`PDF com ${r.qtd} etiqueta(s) pronto.`); return true; }
+      try { await dl.save({ filename: nome, data: r.blob }); aviso(`${rotulo} com ${r.qtd} etiqueta(s) pronto.`); return true; }
       catch (e) {
         const msg = { declined: "Download cancelado.", host_unavailable: "Este app não salva arquivos. Abra o link no navegador do celular ou no computador.", rate_limited: "Aguarde um instante e tente de novo." }[e && e.code];
-        aviso(msg || "Não foi possível salvar o PDF aqui. Abra o link no navegador.", true); return false;
+        aviso(msg || "Não foi possível salvar o arquivo aqui. Abra o link no navegador.", true); return false;
       }
     }
     const a = document.createElement("a"); a.href = URL.createObjectURL(r.blob); a.download = nome; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    aviso(`PDF com ${r.qtd} etiqueta(s) pronto.`); return true;
+    aviso(`${rotulo} com ${r.qtd} etiqueta(s) pronto.`); return true;
   }
-  const nomeArquivo = (it) => "etiquetas-imei" + (it && it.imei1 ? "-" + it.imei1.slice(-4) : "") + ".pdf";
+  const nomeArquivo = (it) => "etiquetas-imei" + (it && it.imei1 ? "-" + it.imei1.slice(-4) : "");
 
   // ---------- lista ----------
   function salvarLista() { gravar("etq-imei-lista", lista); desenharLista(); previa(); }
@@ -371,11 +455,12 @@ details summary{cursor:pointer;font-weight:600}
   }
 
   // ---------- ajustes ----------
-  const LIM = { largura_mm: [10, 120], altura_mm: [10, 120], colunas: [1, 4], espaco_colunas_mm: [0, 20], margem_esquerda_mm: [0, 50], ajuste_vertical_mm: [-10, 10] };
+  const LIM = { gap_mm: [0, 10], largura_mm: [10, 120], altura_mm: [10, 120], colunas: [1, 4], espaco_colunas_mm: [0, 20], margem_esquerda_mm: [0, 50], ajuste_vertical_mm: [-10, 10] };
   for (const k of Object.keys(PADRAO)) {
     const el = $(k); el.value = cfg[k];
     el.addEventListener("change", () => {
       if (k === "layout") cfg.layout = el.value === "par" ? "par" : "separado";
+      else if (k === "formato") { cfg.formato = ["zpl", "epl", "pdf"].includes(el.value) ? el.value : "zpl"; mostrarFormato(); }
       else {
         let v = parseFloat(String(el.value).replace(",", ".")); if (!isFinite(v)) v = PADRAO[k];
         v = Math.max(LIM[k][0], Math.min(LIM[k][1], v)); if (k === "colunas") v = Math.round(v);
@@ -398,7 +483,7 @@ details summary{cursor:pointer;font-weight:600}
   $("copias").addEventListener("input", previa);
   $("btnInverter").onclick = () => { const a = $("imei1").value; $("imei1").value = $("imei2").value; $("imei2").value = a; validar(1); validar(2); previa(); };
   $("btnLimpar").onclick = limpar;
-  $("btnPdf").onclick = async () => { const it = itemAtual(); if (conferir(it) && await salvarPdf([it], nomeArquivo(it))) { limpar(); $("status").textContent = "PDF gerado. Pode fotografar a próxima caixa."; } };
+  $("btnPdf").onclick = async () => { const it = itemAtual(); if (conferir(it) && await salvarArquivo([it], nomeArquivo(it))) { limpar(); $("status").textContent = "Arquivo gerado. Pode fotografar a próxima caixa."; } };
   $("btnAdd").onclick = () => {
     const it = itemAtual(); if (!conferir(it)) return;
     const repetido = lista.some((f) => f.imei1 === it.imei1 || f.imei2 === it.imei1);
@@ -406,13 +491,14 @@ details summary{cursor:pointer;font-weight:600}
     aviso(repetido ? "Adicionado. Atenção: esse IMEI já estava na lista." : "Adicionado à lista.");
     $("status").textContent = "Pode fotografar a próxima caixa.";
   };
-  $("btnPdfLista").onclick = async () => { if (await salvarPdf(lista, "etiquetas-imei-lista.pdf")) aviso("PDF da lista pronto. Esvazie a lista depois de imprimir."); };
+  $("btnPdfLista").onclick = async () => { if (await salvarArquivo(lista, "etiquetas-imei-lista")) aviso("Arquivo da lista pronto. Esvazie a lista depois de imprimir."); };
   $("btnEsvaziar").onclick = () => { $("confirmaEsvaziar").hidden = false; };
   $("btnNaoEsvaziar").onclick = () => { $("confirmaEsvaziar").hidden = true; };
   $("btnSimEsvaziar").onclick = () => { lista = []; salvarLista(); $("confirmaEsvaziar").hidden = true; };
-  $("btnTeste").onclick = () => salvarPdf([{ imei1: "490154203237518", imei2: "356938035643809", descricao: "TESTE", copias: cfg.layout === "par" ? cfg.colunas : 1 }], "etiqueta-teste.pdf");
+  $("btnTeste").onclick = () => salvarArquivo([{ imei1: "490154203237518", imei2: "356938035643809", descricao: "TESTE", copias: cfg.layout === "par" ? cfg.colunas : 1 }], "etiqueta-teste");
   window.addEventListener("resize", previa);
 
-  desenharLista(); previa();
+  function mostrarFormato() { $("comoTxt").hidden = cfg.formato === "pdf"; $("comoPdf").hidden = cfg.formato !== "pdf"; }
+  mostrarFormato(); desenharLista(); previa();
 })();
 </script>

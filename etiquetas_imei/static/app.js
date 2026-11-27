@@ -242,7 +242,7 @@
       const r = await api("api/zpl", { itens: fila });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(new Blob([r.zpl], { type: "text/plain" }));
-      a.download = "etiquetas-imei.zpl"; a.click();
+      a.download = "etiquetas-imei.txt"; a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     } catch (e) { aviso(e.message, true); }
   }

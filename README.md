@@ -146,3 +146,12 @@ python -m unittest discover -s tests
 `online/etiquetas-imei.html` é a versão publicada como página privada no claude.ai: abre pelo link no celular,
 lê os códigos de barras da foto e gera um **PDF** com as etiquetas (cada página = uma fileira de 82×25 mm).
 Imprima o PDF em tamanho real (100%), sem margens. Essa versão lê só códigos de barras (não tem leitura de texto/OCR).
+
+### Impressora Elgin L42DT (arquivo .txt)
+
+A Elgin L42DT entende ZPL e EPL. A página do celular baixa por padrão um **.txt com comandos ZPL**
+(em *Formato do arquivo* dá para trocar para EPL ou PDF). Para imprimir, no computador ligado à Elgin:
+arraste o .txt sobre **`Imprimir TXT na Elgin.bat`** (ou dê dois cliques nele para imprimir o
+`etiquetas-imei*.txt` mais recente da pasta Downloads). O atalho usa o PowerShell do Windows, não precisa de Python,
+e envia o arquivo "cru" (RAW) para a impressora com "L42" ou "Elgin" no nome (se não achar, pergunta qual usar e
+guarda em `impressora.txt`). Não imprima o .txt pelo Bloco de Notas: sairiam as letras dos comandos.

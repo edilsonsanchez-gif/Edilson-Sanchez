@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 etiquetas_imei/config.json
 etiquetas.zpl
+impressora.txt
