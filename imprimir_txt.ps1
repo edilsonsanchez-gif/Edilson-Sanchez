@@ -1,6 +1,7 @@
 ﻿# Envia um .txt de etiquetas (comandos ZPL ou EPL) direto para a impressora de etiquetas, sem o driver "desenhar" o texto.
-# Uso: arraste o .txt sobre "Imprimir TXT na Elgin.bat", ou dê dois cliques nele para imprimir
-# o etiquetas-imei*.txt / etiqueta-teste*.txt mais recente da pasta Downloads.
+# Uso: arraste o .txt sobre "Imprimir TXT na Elgin.bat", ou de dois cliques nele para imprimir o .txt de
+# etiquetas mais recente da pasta Downloads (o de teste so se nao houver outro). Depois de impresso, o arquivo
+# vai para Downloads\Etiquetas impressas.
 param([string]$Arquivo = "", [string]$Impressora = "")
 
 $ErrorActionPreference = "Stop"
@@ -37,13 +38,25 @@ public static class ImpressoraRaw {
 "@
 
 try {
-    if (-not $Arquivo) {
+    $automatico = -not $Arquivo
+    if ($automatico) {
+        # Pega o .txt de etiquetas mais novo da pasta Downloads (qualquer nome), deixando o de teste por ultimo.
         $downloads = Join-Path $env:USERPROFILE "Downloads"
-        $ultimo = Get-ChildItem -Path $downloads -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -like "etiquetas-imei*.txt" -or $_.Name -like "etiqueta-teste*.txt" } |
-            Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        if (-not $ultimo) { throw "Nenhum etiquetas-imei*.txt na pasta Downloads. Arraste o arquivo sobre o atalho." }
-        $Arquivo = $ultimo.FullName
+        $candidatos = Get-ChildItem -Path $downloads -Filter *.txt -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Length -lt 2MB } |
+            Where-Object { $t = [System.IO.File]::ReadAllText($_.FullName); ($t -match '\^XA' -and $t -match '\^XZ') -or ($t -match '(?m)^N\s*$' -and $t -match '(?m)^P\d+') } |
+            Sort-Object @{ Expression = { $_.Name -like "etiqueta-teste*" } }, @{ Expression = { $_.LastWriteTime }; Descending = $true }
+        $escolhido = $candidatos | Select-Object -First 1
+        if (-not $escolhido) {
+            throw "Nenhum arquivo de etiquetas (.txt) na pasta Downloads deste computador. Se voce baixou pelo celular, o arquivo ficou no celular: passe o .txt para este computador (ou abra a pagina aqui no computador e baixe de novo)."
+        }
+        if ($escolhido.Name -like "etiqueta-teste*") {
+            Write-Host "Atencao: o unico arquivo de etiquetas encontrado em Downloads e o de TESTE."
+            Write-Host "As etiquetas dos IMEIs que voce fotografou nao estao neste computador."
+            $r = Read-Host "Imprimir o teste mesmo assim? (s/n)"
+            if ($r -notmatch '^[sS]') { exit 1 }
+        }
+        $Arquivo = $escolhido.FullName
     }
     if (-not (Test-Path -LiteralPath $Arquivo)) { throw "Arquivo nao encontrado: $Arquivo" }
 
@@ -63,10 +76,24 @@ try {
         }
     }
 
-    $dados = [System.IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $Arquivo))
+    $info = Get-Item -LiteralPath $Arquivo
+    $dados = [System.IO.File]::ReadAllBytes($info.FullName)
+    $texto = [System.Text.Encoding]::ASCII.GetString($dados)
+    $imeis = [regex]::Matches($texto, '(?<![0-9])[0-9]{15}(?![0-9])') | ForEach-Object { $_.Value } | Select-Object -Unique
+    Write-Host "Arquivo: $($info.Name)  (baixado em $($info.LastWriteTime.ToString('dd/MM/yyyy HH:mm')))"
+    Write-Host "IMEIs:   $($imeis -join ', ')"
     [ImpressoraRaw]::Enviar($Impressora, $dados)
     Write-Host ""
-    Write-Host "Enviado: $(Split-Path -Leaf $Arquivo)  ->  $Impressora"
+    Write-Host "Enviado para $Impressora"
+
+    # Guarda o arquivo ja impresso, para o proximo duplo clique nao imprimir de novo.
+    if ($automatico) {
+        $pasta = Join-Path $info.DirectoryName "Etiquetas impressas"
+        New-Item -ItemType Directory -Force -Path $pasta | Out-Null
+        $destino = Join-Path $pasta ("{0:yyyyMMdd-HHmmss}-{1}" -f (Get-Date), $info.Name)
+        Move-Item -LiteralPath $info.FullName -Destination $destino -Force
+        Write-Host "Arquivo guardado em: Downloads\Etiquetas impressas"
+    }
     exit 0
 } catch {
     Write-Host ""

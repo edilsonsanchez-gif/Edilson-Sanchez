@@ -152,6 +152,6 @@ Imprima o PDF em tamanho real (100%), sem margens. Essa versão lê só códigos
 A Elgin L42DT entende ZPL e EPL. A página do celular baixa por padrão um **.txt com comandos ZPL**
 (em *Formato do arquivo* dá para trocar para EPL ou PDF). Para imprimir, no computador ligado à Elgin:
 arraste o .txt sobre **`Imprimir TXT na Elgin.bat`** (ou dê dois cliques nele para imprimir o
-`etiquetas-imei*.txt` mais recente da pasta Downloads). O atalho usa o PowerShell do Windows, não precisa de Python,
+arquivo de etiquetas mais recente da pasta Downloads do computador; o de teste só entra se não houver outro). Ele mostra os IMEIs antes de imprimir e, depois, guarda o arquivo em `Downloads\Etiquetas impressas` para não imprimir de novo. Arquivo baixado no celular fica no celular: passe-o para o computador ou baixe a etiqueta pela página aberta no computador. O atalho usa o PowerShell do Windows, não precisa de Python,
 e envia o arquivo "cru" (RAW) para a impressora com "L42" ou "Elgin" no nome (se não achar, pergunta qual usar e
 guarda em `impressora.txt`). Não imprima o .txt pelo Bloco de Notas: sairiam as letras dos comandos.
