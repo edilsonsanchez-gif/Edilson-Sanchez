@@ -1,0 +1,636 @@
+<title>Painel de e-mails</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: cabeçalho → filtros → cartões por tipo → gráfico por dia → lista com detalhe expansível */
+:root{
+  --bg:#f5f6f4; --surface:#ffffff; --border:#e2e4df; --grid:#eceee9;
+  --text:#1a1c19; --text2:#5f645c; --accent:#2370cd; --accent-ink:#ffffff;
+  --warn-bg:#fff6e5; --warn-border:#f2c26b;
+  --c-venda:#257de0; --c-pergunta:#f47230; --c-mensagem:#00b894; --c-outros:#a3a8a0;
+  --font:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-head:"Space Grotesk","Inter",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121411; --surface:#1a1c19; --border:#2e312c; --grid:#262924;
+  --text:#eef0ec; --text2:#9ca197; --accent:#338ced; --accent-ink:#ffffff;
+  --warn-bg:#2a2414; --warn-border:#8a6a25;
+  --c-venda:#338ced; --c-pergunta:#e76624; --c-mensagem:#00a888; --c-outros:#6c7169;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121411; --surface:#1a1c19; --border:#2e312c; --grid:#262924;
+  --text:#eef0ec; --text2:#9ca197; --accent:#338ced; --accent-ink:#ffffff;
+  --warn-bg:#2a2414; --warn-border:#8a6a25;
+  --c-venda:#338ced; --c-pergunta:#e76624; --c-mensagem:#00a888; --c-outros:#6c7169;
+  color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--text);font:15px/1.45 var(--font)}
+.wrap{max-width:1100px;margin:0 auto;padding-block:20px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+h1{font:600 24px/1.2 var(--font-head);margin:0;text-wrap:balance}
+h2{font:600 15px/1.3 var(--font-head);margin:0}
+.sub{color:var(--text2);font-size:13px}
+a{color:var(--accent)}
+button{font:inherit;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);
+  border-radius:8px;padding:7px 14px}
+button.prim{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button:disabled{opacity:.55;cursor:default}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.card:focus-visible,.linha:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px}
+.filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--bg)}
+.seg button{border:0;border-radius:0;background:transparent;color:var(--text2);font-size:13px;padding:7px 12px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--text);font-weight:600}
+#busca{flex:1 1 220px;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface);color:var(--text);font:inherit}
+.aviso{background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:10px;padding:12px 14px;
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.progresso{height:4px;background:var(--grid);border-radius:4px;overflow:hidden}
+.progresso div{height:100%;background:var(--accent);width:0;transition:width .2s}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;
+  text-align:left;display:flex;flex-direction:column;gap:2px}
+.card[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.card .rot{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2)}
+.card .num{font:650 30px/1.15 var(--font-head);font-variant-numeric:tabular-nums}
+.card .pct{font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums}
+.dot{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
+.painel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;
+  display:flex;flex-direction:column;gap:10px;min-width:0}
+.legenda{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--text2)}
+.legenda span{display:inline-flex;align-items:center;gap:6px}
+.grafico{position:relative}
+.grafico svg{width:100%;height:auto;display:block}
+.grafico text{fill:var(--text2);font-size:11px;font-family:var(--font)}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.14);white-space:nowrap;z-index:2}
+.tip div{display:flex;align-items:center;gap:6px}
+.lista{display:flex;flex-direction:column}
+.linha{display:grid;grid-template-columns:150px minmax(0,1fr) 190px 110px;gap:12px;align-items:start;
+  padding:10px 8px;border-top:1px solid var(--grid);cursor:pointer;background:none;border-left:0;border-right:0;
+  border-bottom:0;border-radius:0;text-align:left;color:var(--text);width:100%}
+.linha:hover{background:var(--bg)}
+.cab{font-size:12px;color:var(--text2);cursor:default;border-top:0}
+.cab:hover{background:none}
+.tag{display:inline-flex;align-items:center;gap:6px;font-size:12px}
+.assunto{font-weight:600;overflow-wrap:anywhere}
+.assunto,.rem>span{display:block}
+.trecho{color:var(--text2);font-size:13px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.rem{overflow-wrap:anywhere;font-size:14px}
+.quando{color:var(--text2);font-size:13px;font-variant-numeric:tabular-nums}
+.detalhe{padding:4px 8px 16px 8px;display:flex;flex-direction:column;gap:12px;border-top:1px dashed var(--grid)}
+.detalhe .texto{white-space:pre-wrap;overflow-wrap:anywhere}
+.detalhe .acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.detalhe select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.motivos{font-size:12px;color:var(--text2);margin:0;padding-left:18px}
+.vazio{color:var(--text2);text-align:center;padding:28px 8px}
+.mais{align-self:center}
+@media (max-width:700px){
+  .linha{grid-template-columns:minmax(0,1fr) auto;row-gap:4px}
+  .linha .c-rem{display:none}
+  .linha .c-tipo{grid-column:1/-1;order:-1}
+  .cab{display:none}
+}
+@media (prefers-reduced-motion:reduce){.progresso div{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Painel de e-mails</h1>
+      <div class="sub" id="status">Conectando ao Gmail…</div>
+    </div>
+    <button class="prim" id="atualizar" type="button">Atualizar</button>
+  </header>
+
+  <div class="aviso" id="aviso" hidden>
+    <span id="aviso-texto"></span>
+    <button type="button" id="aviso-botao" hidden></button>
+  </div>
+  <div class="progresso" id="progresso" hidden><div></div></div>
+
+  <div class="filtros">
+    <div class="seg" role="group" aria-label="Período">
+      <button type="button" data-periodo="7" aria-pressed="true">7 dias</button>
+      <button type="button" data-periodo="14" aria-pressed="false">14 dias</button>
+      <button type="button" data-periodo="30" aria-pressed="false">30 dias</button>
+    </div>
+    <input id="busca" type="search" placeholder="Buscar por assunto, remetente ou texto" aria-label="Buscar">
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <section class="painel" id="sec-grafico">
+    <h2>E-mails por dia</h2>
+    <div class="legenda" id="legenda"></div>
+    <div class="grafico" id="grafico"><div class="tip" id="tip" hidden></div></div>
+  </section>
+
+  <section class="painel" id="sec-lista">
+    <h2 id="titulo-lista">Todos os e-mails</h2>
+    <div class="lista" id="lista"></div>
+    <button type="button" class="mais" id="mais" hidden>Mostrar mais</button>
+  </section>
+
+  <p class="sub">Cada conversa da caixa de entrada é classificada pela primeira mensagem, com palavras-chave. Clique num e-mail para ver o motivo e corrigir o tipo; a correção fica salva só para você.</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Regras de classificação (mesmas do app local, regras.json) ----------
+  var ORDEM = ["venda", "pergunta", "mensagem", "outros"];
+  var CATS = {
+    venda: { rotulo: "Venda de produto", palavras: [
+      "nova venda","venda realizada","venda aprovada","voce vendeu","pedido","novo pedido","pedido confirmado",
+      "pedido realizado","compra aprovada","compra confirmada","compra realizada","pagamento aprovado",
+      "pagamento confirmado","pagamento recebido","pix recebido","transacao aprovada","comprovante de pagamento",
+      "nota fiscal","nf-e","boleto pago","checkout","order","new order","payment received","purchase"] },
+    pergunta: { rotulo: "Pergunta de cliente", palavras: [
+      "duvida","pergunta","gostaria de saber","queria saber","como faco","como funciona","quanto custa",
+      "qual o valor","qual o preco","qual o prazo","tem disponivel","tem em estoque","voces entregam",
+      "voces tem","poderia me informar","pode me informar","poderiam me","orcamento","informacao",
+      "informacoes","e possivel","consigo","aceita","parcela"] },
+    mensagem: { rotulo: "Mensagem de cliente", palavras: [
+      "obrigado","obrigada","agradeco","parabens","elogio","reclamacao","problema","nao recebi","atraso",
+      "troca","devolucao","cancelar","cancelamento","feedback","recebi o produto","meu pedido","minha compra",
+      "minha encomenda","rastreio","defeito"] },
+    outros: { rotulo: "Outros (avisos e newsletters)", palavras: [
+      "descadastrar","cancelar inscricao","unsubscribe","newsletter","nao responda","no-reply","noreply",
+      "alerta de seguranca","verifique seu e-mail","codigo de verificacao","seu codigo","verification code",
+      "security alert","验证码"] }
+  };
+  var DESEMPATE = ["mensagem", "pergunta", "venda", "outros"];
+  var SAUDACOES = ["tudo bem?", "tudo bom?", "como vai?", "como voce esta?", "tudo certo?"];
+  var ROTULOS_AUTOMATICOS = { CATEGORY_PROMOTIONS: "Promoções", CATEGORY_SOCIAL: "Social", CATEGORY_FORUMS: "Fóruns" };
+
+  function normalizar(t) {
+    return String(t || "").normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+  }
+  function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+  var PADROES = {};
+  ORDEM.forEach(function (c) {
+    PADROES[c] = CATS[c].palavras.map(function (p) {
+      return { p: p, re: new RegExp("(?<![a-z0-9])" + escRe(normalizar(p)) + "(?![a-z0-9])") };
+    });
+  });
+
+  function classificar(assunto, texto, remetente, labels) {
+    var a = normalizar(assunto), t = normalizar(texto), r = normalizar(remetente);
+    var pts = { venda: 0, pergunta: 0, mensagem: 0, outros: 0 }, motivos = [];
+    ORDEM.forEach(function (c) {
+      PADROES[c].forEach(function (x) {
+        if (x.re.test(a)) { pts[c] += 2; motivos.push("“" + x.p + "” no assunto"); }
+        else if (x.re.test(t)) { pts[c] += 1; motivos.push("“" + x.p + "” no texto"); }
+        else if (c === "outros" && x.re.test(r)) { pts[c] += 1; motivos.push("“" + x.p + "” no remetente"); }
+      });
+    });
+    var trecho = a + " " + t;
+    SAUDACOES.forEach(function (s) { trecho = trecho.split(s).join(" "); });
+    if (trecho.indexOf("?") >= 0) { pts.pergunta += 2; motivos.push("contém um “?”"); }
+    (labels || []).forEach(function (l) {
+      if (ROTULOS_AUTOMATICOS[l]) { pts.outros += 2; motivos.push("aba " + ROTULOS_AUTOMATICOS[l] + " do Gmail"); }
+    });
+    if (pts.venda > 0) pts.outros = 0; // venda enviada por no-reply continua sendo venda
+    var melhor = DESEMPATE.slice().sort(function (x, y) { return pts[y] - pts[x] || DESEMPATE.indexOf(x) - DESEMPATE.indexOf(y); })[0];
+    if (pts[melhor] === 0) { melhor = "mensagem"; motivos.push("nenhuma palavra-chave: tipo padrão"); }
+    return { cat: melhor, motivos: motivos };
+  }
+
+  // ---------- Estado ----------
+  var estado = {
+    periodo: 7, filtro: null, busca: "", aberto: null, limite: 60,
+    itens: new Map(), correcoes: new Map(), carregando: false, feitos: 0, total: 0,
+    ultima: null, geracao: 0
+  };
+  var mcp = null, db = null, uid = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function el(tag, attrs, filhos) {
+    var e = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      if (k === "text") e.textContent = attrs[k];
+      else if (k === "class") e.className = attrs[k];
+      else if (k === "style") e.setAttribute("style", attrs[k]);
+      else e.setAttribute(k, attrs[k]);
+    });
+    (filhos || []).forEach(function (f) { if (f) e.appendChild(typeof f === "string" ? document.createTextNode(f) : f); });
+    return e;
+  }
+  function dot(c) { return el("span", { class: "dot", style: "background:var(--c-" + c + ")" }); }
+  function catDe(it) { return estado.correcoes.get(it.threadId) || it.auto.cat; }
+  function linkSeguro(u) { return typeof u === "string" && /^https:\/\//.test(u) ? u : null; }
+  function diaISO(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function fmtData(d) {
+    if (!d || isNaN(d)) return "";
+    var hoje = diaISO(new Date()) === diaISO(d);
+    var hora = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    return hoje ? "hoje " + hora : String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + " " + hora;
+  }
+
+  // ---------- Avisos ----------
+  function aviso(texto, botao, acao) {
+    $("aviso").hidden = !texto;
+    $("aviso-texto").textContent = texto || "";
+    var b = $("aviso-botao");
+    b.hidden = !botao;
+    if (botao) { b.textContent = botao; b.onclick = acao; }
+  }
+  var FATAIS = {
+    server_not_connected: ["O Gmail não está conectado à sua conta Claude. Conecte em claude.ai → Configurações → Conectores e depois clique em Tentar de novo.", "Tentar de novo"],
+    needs_reauth: ["A conexão com o Gmail expirou. Reconecte o Gmail em claude.ai → Configurações → Conectores e depois clique em Tentar de novo.", "Tentar de novo"],
+    selection_required: ["Você tem mais de uma conta Gmail conectada. Escolha qual usar no aviso do Claude e depois clique em Tentar de novo.", "Tentar de novo"],
+    approval_required: ["O painel precisa da sua permissão para ler o Gmail.", "Permitir acesso ao Gmail"],
+    not_in_manifest: ["O acesso ao Gmail foi recusado para este painel. Permita no menu Permissões do artefato e depois clique em Tentar de novo.", "Tentar de novo"],
+    consent_required: ["O painel precisa da sua permissão para ler o Gmail.", "Permitir acesso ao Gmail"],
+    blocked_by_policy: ["A sua organização bloqueou o acesso ao Gmail por aqui.", null],
+    not_granted: ["Este painel só lê o Gmail quando aberto no claude.ai, com a sua conta.", null],
+    capability_disabled: ["Este painel só lê o Gmail quando aberto no claude.ai, com a sua conta.", null],
+    capability_removed: ["Este painel só lê o Gmail quando aberto no claude.ai, com a sua conta.", null]
+  };
+
+  // ---------- Chamadas ao Gmail ----------
+  function payloadDe(res) {
+    var p = res && res.payload;
+    if (typeof p === "string") { try { p = JSON.parse(p); } catch (e) { p = null; } }
+    return p || {};
+  }
+  function esperar(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function chamar(tool, input, cache) {
+    return mcp.callTool("Gmail", tool, input, { cache: cache }).catch(function (e) {
+      if (e && e.retryable) {
+        return esperar((e.retryAfterMs || 800) + Math.random() * 700).then(function () {
+          return mcp.callTool("Gmail", tool, input, { cache: cache });
+        });
+      }
+      throw e;
+    });
+  }
+  function pool(itens, n, fn) {
+    var i = 0;
+    function prox() { if (i >= itens.length) return Promise.resolve(); var x = itens[i++]; return fn(x).then(prox); }
+    var ps = []; for (var k = 0; k < Math.min(n, itens.length); k++) ps.push(prox());
+    return Promise.all(ps);
+  }
+
+  var DIA = 86400000, SEMANA = 7 * DIA;
+
+  function carregar(forcar) {
+    if (!mcp) return;
+    var ger = ++estado.geracao;
+    estado.carregando = true; estado.feitos = 0; estado.total = 0;
+    aviso(null);
+    $("atualizar").disabled = true;
+    renderStatus();
+    var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    var dias = [];
+    for (var i = 0; i < estado.periodo; i++) dias.push(new Date(hoje.getTime() - i * DIA));
+    var fatal = null, vistos = new Set(), falhas = 0;
+    var fmt = function (d) { return d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate(); };
+    estado.total = dias.length;
+
+    function tratarErro(e) {
+      var code = e && e.code;
+      if (FATAIS[code] && !fatal) fatal = code;
+      else falhas++;
+    }
+
+    function buscarDia(d, idx) {
+      if (fatal || ger !== estado.geracao) return Promise.resolve();
+      var query = "in:inbox after:" + fmt(d) + " before:" + fmt(new Date(d.getTime() + DIA));
+      var cache = idx === 0 ? { staleTime: forcar ? 0 : 120000, gcTime: DIA, refresh: !!forcar }
+                            : { staleTime: forcar && idx === 1 ? 0 : 6 * 3600000, gcTime: SEMANA };
+      var paginas = 0;
+      function pagina(token) {
+        var input = { query: query, pageSize: 50, view: "THREAD_VIEW_MINIMAL" };
+        if (token) input.pageToken = token;
+        return chamar("search_threads", input, cache).then(function (res) {
+          if (ger !== estado.geracao) return;
+          var p = payloadDe(res);
+          var threads = Array.isArray(p.threads) ? p.threads : [];
+          var novos = [];
+          threads.forEach(function (t) {
+            if (!t || !t.id || vistos.has(t.id)) return;
+            vistos.add(t.id);
+            var m = Array.isArray(t.messages) && t.messages[0] ? t.messages[0] : {};
+            novos.push({ t: t, m: m, dia: d });
+          });
+          estado.total += novos.length;
+          return pool(novos, 4, detalhar).then(function () {
+            paginas++;
+            if (p.nextPageToken && paginas < 6 && !fatal) return pagina(p.nextPageToken);
+          });
+        });
+      }
+      return pagina(null).catch(tratarErro).then(function () { estado.feitos++; agendar(); });
+    }
+
+    function detalhar(x) {
+      if (fatal || ger !== estado.geracao) return Promise.resolve();
+      var m = x.m;
+      var pronto = m.date && m.snippet != null;
+      var p = pronto ? Promise.resolve(m)
+        : chamar("get_message", { messageId: m.id || x.t.id, messageFormat: "MINIMAL" }, { staleTime: SEMANA, gcTime: SEMANA })
+            .then(payloadDe).catch(function (e) { tratarErro(e); return m; });
+      return p.then(function (msg) {
+        if (ger !== estado.geracao) return;
+        msg = msg || {};
+        var email = msg.sender || m.sender || "";
+        var nome = email;
+        (msg.addressDisplayNames || []).forEach(function (a) { if (a && a.emailAddress === email && a.displayName) nome = a.displayName; });
+        var data = msg.date ? new Date(msg.date) : (msg.internalDate ? new Date(Number(msg.internalDate)) : new Date(x.dia.getTime() + 12 * 3600000));
+        var assunto = msg.subject || m.subject || "(sem assunto)";
+        var trecho = msg.snippet || m.snippet || "";
+        var labels = msg.labelIds || m.labelIds || [];
+        estado.itens.set(x.t.id, {
+          threadId: x.t.id, msgId: msg.id || m.id, assunto: assunto, remetente: nome, email: email,
+          data: data, trecho: trecho, count: x.t.messageCount || 1,
+          url: linkSeguro(msg.viewUrl) || linkSeguro(x.t.viewUrl) || linkSeguro(m.viewUrl) ||
+               "https://mail.google.com/mail/#all/" + encodeURIComponent(x.t.id),
+          auto: classificar(assunto, trecho, email, labels)
+        });
+        estado.feitos++;
+        agendar();
+      });
+    }
+
+    estado.itens = new Map();
+    estado.limite = 60;
+    agendar();
+    pool(dias.map(function (d, i) { return [d, i]; }), 3, function (a) { return buscarDia(a[0], a[1]); }).then(function () {
+      if (ger !== estado.geracao) return;
+      estado.carregando = false;
+      $("atualizar").disabled = false;
+      if (fatal) {
+        var f = FATAIS[fatal];
+        aviso(f[0], f[1], function () { carregar(true); });
+      } else if (falhas) {
+        aviso("Alguns e-mails não puderam ser lidos agora (" + falhas + "). O painel mostra o restante.", "Tentar de novo", function () { carregar(true); });
+      }
+      if (!fatal) estado.ultima = new Date();
+      render();
+    });
+  }
+
+  // ---------- Correções (salvas só para quem está vendo) ----------
+  function iniciarCorrecoes() {
+    if (!db || !uid) return;
+    try {
+      db.collection("data/users/" + uid + "/correcoes").onSnapshot(function (snap) {
+        var m = new Map();
+        snap.docs.forEach(function (d) {
+          var v = d.data() || {};
+          if (CATS[v.categoria]) m.set(d.id, v.categoria);
+        });
+        estado.correcoes = m;
+        agendar();
+      }, function () { /* sem correções: segue com a classificação automática */ });
+    } catch (e) { /* idem */ }
+  }
+  function salvarCorrecao(threadId, cat, botao) {
+    if (!db || !uid) return;
+    var ref = db.collection("data/users/" + uid + "/correcoes").doc(threadId);
+    botao.disabled = true;
+    var p = cat ? ref.set({ categoria: cat, em: new Date().toISOString() }) : ref.delete();
+    p.then(function () {
+      if (cat) estado.correcoes.set(threadId, cat); else estado.correcoes.delete(threadId);
+      render();
+    }).catch(function () {
+      botao.disabled = false;
+      aviso("Não foi possível salvar a correção. Tente de novo em instantes.", null);
+    });
+  }
+
+  // ---------- Desenho ----------
+  var pendente = false;
+  function agendar() { if (!pendente) { pendente = true; requestAnimationFrame(function () { pendente = false; render(); }); } }
+
+  function visiveis() {
+    var b = normalizar(estado.busca);
+    var out = [];
+    estado.itens.forEach(function (it) {
+      if (b && normalizar(it.assunto + " " + it.remetente + " " + it.email + " " + it.trecho).indexOf(b) < 0) return;
+      out.push(it);
+    });
+    return out;
+  }
+
+  function renderStatus() {
+    var s;
+    if (!mcp) s = "Conectando ao Gmail…";
+    else if (estado.carregando) s = "Lendo a caixa de entrada… " + estado.itens.size + " e-mails";
+    else s = "Caixa de entrada · últimos " + estado.periodo + " dias" + (estado.ultima ? " · atualizado " + fmtData(estado.ultima) : "");
+    $("status").textContent = s;
+    var pr = $("progresso");
+    pr.hidden = !estado.carregando;
+    var frac = estado.total ? Math.min(1, estado.feitos / (estado.total + estado.periodo)) : 0;
+    pr.firstElementChild.style.width = Math.round(frac * 100) + "%";
+  }
+
+  function render() {
+    renderStatus();
+    var base = visiveis();
+    var cont = { venda: 0, pergunta: 0, mensagem: 0, outros: 0 };
+    base.forEach(function (it) { cont[catDe(it)]++; });
+    var total = base.length;
+
+    var cards = $("cards"); cards.textContent = "";
+    ORDEM.forEach(function (c) {
+      var on = estado.filtro === c;
+      var b = el("button", { type: "button", class: "card", "aria-pressed": on ? "true" : "false", id: "card-" + c }, [
+        el("span", { class: "rot" }, [dot(c), CATS[c].rotulo]),
+        el("span", { class: "num", text: String(cont[c]) }),
+        el("span", { class: "pct", text: total ? Math.round(100 * cont[c] / total) + "% do total" : "—" })
+      ]);
+      b.onclick = function () { estado.filtro = on ? null : c; estado.aberto = null; estado.limite = 60; render(); };
+      cards.appendChild(b);
+    });
+
+    renderGrafico(base);
+
+    var lista = base.filter(function (it) { return !estado.filtro || catDe(it) === estado.filtro; })
+      .sort(function (a, b) { return b.data - a.data; });
+    $("titulo-lista").textContent = (estado.filtro ? CATS[estado.filtro].rotulo : "Todos os e-mails") + " (" + lista.length + ")";
+    var box = $("lista"); box.textContent = "";
+    if (!lista.length) {
+      box.appendChild(el("p", { class: "vazio", text: estado.carregando ? "Carregando e-mails…" :
+        (mcp ? "Nenhum e-mail encontrado com esses filtros." : "Os e-mails aparecem aqui assim que o Gmail responder.") }));
+    } else {
+      box.appendChild(el("div", { class: "linha cab", "aria-hidden": "true" }, [
+        el("span", { text: "Tipo" }), el("span", { text: "Assunto" }), el("span", { class: "c-rem", text: "Remetente" }), el("span", { text: "Recebido" })]));
+      lista.slice(0, estado.limite).forEach(function (it) { box.appendChild(linha(it)); });
+    }
+    $("mais").hidden = lista.length <= estado.limite;
+  }
+
+  function linha(it) {
+    var c = catDe(it), aberto = estado.aberto === it.threadId;
+    var frag = document.createDocumentFragment();
+    var b = el("button", { type: "button", class: "linha", "aria-expanded": aberto ? "true" : "false" }, [
+      el("span", { class: "tag c-tipo" }, [dot(c), CATS[c].rotulo + (estado.correcoes.has(it.threadId) ? " ✎" : "")]),
+      el("span", {}, [
+        el("span", { class: "assunto", text: it.assunto + (it.count > 1 ? "  (" + it.count + ")" : "") }),
+        el("span", { class: "trecho", text: it.trecho })
+      ]),
+      el("span", { class: "rem c-rem" }, [el("span", { text: it.remetente }), it.remetente !== it.email ? el("span", { class: "sub", text: it.email }) : null]),
+      el("span", { class: "quando", text: fmtData(it.data) })
+    ]);
+    b.onclick = function () { estado.aberto = aberto ? null : it.threadId; render(); };
+    frag.appendChild(b);
+    if (aberto) frag.appendChild(detalhe(it));
+    return frag;
+  }
+
+  function detalhe(it) {
+    var c = catDe(it);
+    var d = el("div", { class: "detalhe" });
+    d.appendChild(el("div", { class: "sub", text: "De " + it.remetente + (it.email && it.email !== it.remetente ? " <" + it.email + ">" : "") + " · " + fmtData(it.data) }));
+    if (it.trecho) d.appendChild(el("div", { class: "texto", text: it.trecho + (it.trecho.length >= 150 ? "…" : "") }));
+    var acoes = el("div", { class: "acoes" });
+    acoes.appendChild(el("a", { href: it.url, target: "_blank", rel: "noopener", text: "Abrir no Gmail ↗" }));
+    if (db && uid) {
+      var sel = el("select", { id: "tipo-" + it.threadId, "aria-label": "Tipo do e-mail" });
+      ORDEM.forEach(function (k) { var o = el("option", { value: k, text: CATS[k].rotulo }); if (k === c) o.selected = true; sel.appendChild(o); });
+      var salvar = el("button", { type: "button", class: "prim", text: "Salvar tipo" });
+      salvar.onclick = function () { salvarCorrecao(it.threadId, sel.value === it.auto.cat ? null : sel.value, salvar); };
+      acoes.appendChild(sel); acoes.appendChild(salvar);
+      if (estado.correcoes.has(it.threadId)) {
+        var volta = el("button", { type: "button", text: "Voltar à classificação automática" });
+        volta.onclick = function () { salvarCorrecao(it.threadId, null, volta); };
+        acoes.appendChild(volta);
+      }
+    }
+    d.appendChild(acoes);
+    var ul = el("ul", { class: "motivos" });
+    ul.appendChild(el("li", { text: "Classificação automática: " + CATS[it.auto.cat].rotulo }));
+    it.auto.motivos.slice(0, 6).forEach(function (m) { ul.appendChild(el("li", { text: m })); });
+    d.appendChild(ul);
+    return d;
+  }
+
+  var SVGNS = "http://www.w3.org/2000/svg";
+  function s(tag, attrs) { var e = document.createElementNS(SVGNS, tag); Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); }); return e; }
+
+  function renderGrafico(base) {
+    var leg = $("legenda"); leg.textContent = "";
+    ORDEM.forEach(function (c) { leg.appendChild(el("span", {}, [dot(c), CATS[c].rotulo])); });
+    var box = $("grafico"), tip = $("tip");
+    Array.prototype.slice.call(box.querySelectorAll("svg, .vazio")).forEach(function (n) { n.remove(); });
+    tip.hidden = true;
+
+    var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    var dias = [];
+    for (var i = estado.periodo - 1; i >= 0; i--) dias.push(diaISO(new Date(hoje.getTime() - i * DIA)));
+    var dados = {};
+    dias.forEach(function (d) { dados[d] = { venda: 0, pergunta: 0, mensagem: 0, outros: 0 }; });
+    base.forEach(function (it) { var k = diaISO(it.data); if (dados[k]) dados[k][catDe(it)]++; });
+    var maximo = 0; dias.forEach(function (d) { var t = 0; ORDEM.forEach(function (c) { t += dados[d][c]; }); maximo = Math.max(maximo, t); });
+    if (!maximo) { box.insertBefore(el("p", { class: "vazio", text: estado.carregando ? "Carregando…" : "Sem e-mails no período." }), tip); return; }
+
+    var larg = Math.max(300, Math.round(box.clientWidth || 900)), alt = larg < 500 ? 200 : 220, esq = 34, baseY = 196, topo = 10, hUtil = baseY - topo;
+    var passo = Math.max(1, Math.ceil(maximo / 4)), eixo = passo * 4;
+    var col = (larg - esq) / dias.length, barra = Math.max(3, Math.min(30, col * 0.66));
+    var aCadaMin = larg < 500 ? 6 : 10;
+    var svg = s("svg", { viewBox: "0 0 " + larg + " " + alt, role: "img", "aria-label": "E-mails por dia, separados por tipo" });
+    for (var g = 0; g <= 4; g++) {
+      var y = baseY - hUtil * g / 4;
+      svg.appendChild(s("line", { x1: esq, x2: larg, y1: y, y2: y, stroke: "var(--grid)" }));
+      var tx = s("text", { x: esq - 6, y: y + 4, "text-anchor": "end" }); tx.textContent = String(passo * g); svg.appendChild(tx);
+    }
+    var aCada = Math.max(1, Math.ceil(dias.length / aCadaMin));
+    dias.forEach(function (dia, idx) {
+      var cx = esq + col * idx + col / 2, yy = baseY, v = dados[dia];
+      var segs = ORDEM.filter(function (c) { return v[c]; });
+      segs.forEach(function (c, j) {
+        var h = hUtil * v[c] / eixo, gap = j > 0 ? 2 : 0, t0 = yy - h, x0 = cx - barra / 2;
+        var r = j === segs.length - 1 ? Math.min(4, barra / 2, h - gap) : 0;
+        var path = "M" + x0 + "," + (yy - gap) + " V" + (t0 + r) + " Q" + x0 + "," + t0 + " " + (x0 + r) + "," + t0 +
+          " H" + (x0 + barra - r) + " Q" + (x0 + barra) + "," + t0 + " " + (x0 + barra) + "," + (t0 + r) + " V" + (yy - gap) + " Z";
+        svg.appendChild(s("path", { d: path, fill: "var(--c-" + c + ")" }));
+        yy = t0;
+      });
+      var alvo = s("rect", { x: esq + col * idx, y: topo, width: col, height: hUtil, fill: "transparent" });
+      alvo.addEventListener("mousemove", function (ev) {
+        tip.textContent = "";
+        var p = dia.split("-");
+        tip.appendChild(el("b", { text: p[2] + "/" + p[1] + "/" + p[0] }));
+        ORDEM.forEach(function (c) { tip.appendChild(el("div", {}, [dot(c), CATS[c].rotulo + ": ", el("b", { text: String(v[c]) })])); });
+        tip.hidden = false;
+        var rb = box.getBoundingClientRect(), x = ev.clientX - rb.left + 12, yv = ev.clientY - rb.top + 12;
+        if (x + tip.offsetWidth > rb.width) x = ev.clientX - rb.left - tip.offsetWidth - 12;
+        tip.style.left = Math.max(0, x) + "px"; tip.style.top = yv + "px";
+      });
+      alvo.addEventListener("mouseleave", function () { tip.hidden = true; });
+      svg.appendChild(alvo);
+      if (idx % aCada === 0) {
+        var p = dia.split("-"), lt = s("text", { x: cx, y: baseY + 16, "text-anchor": "middle" });
+        lt.textContent = p[2] + "/" + p[1]; svg.appendChild(lt);
+      }
+    });
+    svg.appendChild(s("line", { x1: esq, x2: larg, y1: baseY, y2: baseY, stroke: "var(--text2)", "stroke-opacity": ".4" }));
+    box.insertBefore(svg, tip);
+  }
+
+  // ---------- Controles ----------
+  Array.prototype.forEach.call(document.querySelectorAll("[data-periodo]"), function (b) {
+    b.addEventListener("click", function () {
+      var p = Number(b.getAttribute("data-periodo"));
+      if (p === estado.periodo) return;
+      estado.periodo = p;
+      Array.prototype.forEach.call(document.querySelectorAll("[data-periodo]"), function (o) { o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
+      try { localStorage.setItem("painel-periodo", String(p)); } catch (e) {}
+      carregar(false);
+    });
+  });
+  var tBusca;
+  $("busca").addEventListener("input", function (e) {
+    clearTimeout(tBusca);
+    tBusca = setTimeout(function () { estado.busca = e.target.value; estado.limite = 60; render(); }, 150);
+  });
+  $("atualizar").addEventListener("click", function () { carregar(true); });
+  var ultLarg = 0;
+  window.addEventListener("resize", function () { var w = $("grafico").clientWidth; if (Math.abs(w - ultLarg) > 8) { ultLarg = w; agendar(); } });
+  $("mais").addEventListener("click", function () { estado.limite += 60; render(); });
+
+  try {
+    var salvo = Number(localStorage.getItem("painel-periodo"));
+    if ([7, 14, 30].indexOf(salvo) >= 0) {
+      estado.periodo = salvo;
+      Array.prototype.forEach.call(document.querySelectorAll("[data-periodo]"), function (o) {
+        o.setAttribute("aria-pressed", Number(o.getAttribute("data-periodo")) === salvo ? "true" : "false");
+      });
+    }
+  } catch (e) {}
+
+  render();
+
+  // ---------- Início ----------
+  var claude = window.claude;
+  if (!claude || typeof claude.use !== "function") {
+    $("atualizar").disabled = true;
+    aviso("Abra este painel no claude.ai para ler o seu Gmail.", null);
+    $("status").textContent = "Sem acesso ao Gmail nesta visualização";
+    return;
+  }
+  claude.use("mcp").then(function (m) {
+    mcp = m;
+    if (!mcp) {
+      $("atualizar").disabled = true;
+      aviso("Este painel só lê o Gmail quando aberto no claude.ai, com a sua conta.", null);
+      $("status").textContent = "Sem acesso ao Gmail nesta visualização";
+      return;
+    }
+    carregar(false);
+  });
+  Promise.all([claude.use("db"), claude.use("user")]).then(function (r) {
+    db = r[0];
+    var user = r[1];
+    if (!db || !user) return;
+    return user.id().then(function (id) { uid = id; iniciarCorrecoes(); agendar(); });
+  }).catch(function () {});
+})();
+</script>

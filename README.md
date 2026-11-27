@@ -64,3 +64,9 @@ Dica: inclua nas regras de **venda** o assunto exato que a sua plataforma (Shopi
 ```bash
 python -m unittest discover -s tests
 ```
+
+## Versão online (claude.ai)
+
+`online/painel-emails.html` é a versão publicada como página privada no claude.ai. Ela lê o Gmail pelo
+conector do Gmail da conta Claude de quem abre a página (somente leitura), classifica com as mesmas regras
+e guarda as correções de tipo só para quem as fez. Não precisa de servidor nem de computador ligado.
