@@ -189,6 +189,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
         <select id="conta" aria-label="Conta de e-mail" hidden></select>
         <button type="button" id="atualizar">Atualizar</button>
         <button type="button" class="ghost" id="voz" aria-pressed="false">Ligar avisos de voz</button>
+        <select id="voz-tipo" aria-label="Escolher a voz da Meili" hidden></select>
       </div>
     </div>
   </main>
@@ -449,7 +450,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
       var u = new SpeechSynthesisUtterance(texto);
       u.lang = "pt-BR";
       var vs = window.speechSynthesis.getVoices() || [];
-      var pt = vs.filter(function (v) { return /^pt(-|_)BR/i.test(v.lang); })[0] || vs.filter(function (v) { return /^pt/i.test(v.lang); })[0];
+      var pt = vs.filter(function (v) { return v.name === vozEscolhida; })[0] || vozFemininaNavegador(vs);
       if (pt) u.voice = pt;
       u.onstart = function () { $("app").classList.add("falando"); };
       u.onend = u.onerror = function () { $("app").classList.remove("falando"); };
@@ -487,14 +488,71 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     if (document.hidden) { falaPendente = texto; return; }
     falaPendente = null;
     if (modoVoz === "navegador") { vozNavegador(texto); return; }
-    tts.speak(texto, { language: "pt-BR" }).catch(function (e) {
+    tts.speak(texto, opcoesFala()).catch(function (e) {
       var code = e && e.code;
       if (code === "no_gesture") falaPendente = texto;
       else if (code === "not_granted") { modoVoz = "negada"; atualizarBotaoVoz(); }
       else if (code === "unavailable" && temVozNavegador) { modoVoz = "navegador"; vozNavegador(texto); }
     });
   }
+  // ---------- Escolha da voz (padrão: feminina) ----------
+  var vozEscolhida = "";
+  try { vozEscolhida = localStorage.getItem("meili-voz-tipo") || ""; } catch (e) {}
+  // Vozes femininas conhecidas em português (Windows, Mac, Android, Chrome).
+  var FEMININA = /maria|francisca|luciana|vit[oó]ria|thalita|leila|helo[ií]sa|camila|fernanda|joana|catarina|raquel|female|feminin|mulher|google portugu[eê]s|pt-br-x-(afs|pte|pth)/i;
+  var MASCULINA = /daniel|antonio|ant[oô]nio|felipe|jo[aã]o|ricardo|male|masculin|pt-br-x-(ptd|ptc)/i;
+  function vozesPt(vs) {
+    var pt = vs.filter(function (v) { return /^pt(-|_)BR/i.test(v.lang); });
+    if (!pt.length) pt = vs.filter(function (v) { return /^pt/i.test(v.lang); });
+    return pt;
+  }
+  function vozFemininaNavegador(vs) {
+    var pt = vozesPt(vs);
+    return pt.filter(function (v) { return FEMININA.test(v.name) && !/\bmale\b/i.test(v.name); })[0] ||
+           pt.filter(function (v) { return !MASCULINA.test(v.name); })[0] || pt[0] || null;
+  }
+  // Vozes do Claude: o nome não diz se é feminina; "airy" fica como padrão e dá para trocar na lista.
+  var VOZES_CLAUDE = [["airy", "Voz Airy"], ["glassy", "Voz Glassy"], ["buttery", "Voz Buttery"], ["rounded", "Voz Rounded"]];
+  function opcoesFala() {
+    var v = VOZES_CLAUDE.some(function (x) { return x[0] === vozEscolhida; }) ? vozEscolhida : "airy";
+    return { language: "pt-BR", voice: v };
+  }
+  function preencherVozes() {
+    var sel = $("voz-tipo");
+    var mostrar = modoVoz === "claude" || modoVoz === "navegador";
+    sel.hidden = !mostrar;
+    if (!mostrar) return;
+    var opcoes = [], atual = "";
+    if (modoVoz === "claude") {
+      opcoes = VOZES_CLAUDE;
+      atual = opcoesFala().voice;
+    } else {
+      var vs = vozesPt(window.speechSynthesis.getVoices() || []);
+      opcoes = vs.map(function (v) { return [v.name, v.name.replace(/^(Microsoft|Google|Apple)\s+/i, "").replace(/\s*-\s*Portuguese.*$/i, "")]; });
+      var pref = vs.filter(function (v) { return v.name === vozEscolhida; })[0] || vozFemininaNavegador(vs);
+      atual = pref ? pref.name : "";
+    }
+    var chave = modoVoz + "|" + opcoes.map(function (o) { return o[0]; }).join(",") + "|" + atual;
+    if (sel.getAttribute("data-chave") === chave) return;
+    sel.setAttribute("data-chave", chave);
+    sel.textContent = "";
+    if (!opcoes.length) { sel.hidden = true; return; }
+    opcoes.forEach(function (o) { sel.appendChild(el("option", { value: o[0], text: o[1] })); });
+    sel.value = atual;
+  }
+  $("voz-tipo").addEventListener("change", function (e) {
+    vozEscolhida = e.target.value;
+    try { localStorage.setItem("meili-voz-tipo", vozEscolhida); } catch (er) {}
+    var amostra = "Olá, eu sou a Meili. Vou avisar quando chegar venda, pergunta ou mensagem de cliente.";
+    if (modoVoz === "navegador") vozNavegador(amostra);
+    else if (modoVoz === "claude" && tts) tts.speak(amostra, opcoesFala()).catch(function () {});
+  });
+  if (temVozNavegador && typeof window.speechSynthesis.addEventListener === "function") {
+    window.speechSynthesis.addEventListener("voiceschanged", function () { preencherVozes(); });
+  }
+
   function atualizarBotaoVoz() {
+    preencherVozes();
     var b = $("voz");
     b.disabled = modoVoz === "nenhuma";
     if (modoVoz === "negada") { b.setAttribute("aria-pressed", "false"); b.textContent = "Voz bloqueada: permitir"; return; }
@@ -520,7 +578,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     }
     if (modoVoz === "navegador") { vozNavegador(CONFIRMA); return; }
     if (modoVoz === "claude") {
-      tts.speak(CONFIRMA, { language: "pt-BR" }).catch(function (e) {
+      tts.speak(CONFIRMA, opcoesFala()).catch(function (e) {
         var code = e && e.code;
         if (code === "not_granted") { modoVoz = "negada"; atualizarBotaoVoz(); }
         else if (code === "unavailable" && temVozNavegador) { modoVoz = "navegador"; vozNavegador(CONFIRMA); }
