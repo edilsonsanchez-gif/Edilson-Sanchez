@@ -288,7 +288,8 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     var mt = /disse:\s*([\s\S]*?)(?:\[[^\]]*)?Responder mensage/i.exec(corpo);
     var texto = mt ? mt[1].replace(/\|/g, " ").replace(/\[|\]\([^)]*\)/g, " ").replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").replace(/\n{2,}/g, "\n").trim() : "";
     var lk = /Responder mensage[^\]]*\]\((https:\/\/[^)\s]+)\)/i.exec(corpo);
-    return { texto: texto, link: lk ? lk[1] : null };
+    var nm = /(?:^|[|\n])\s*([^|\n\]\[]{2,60}?)\s+disse:/i.exec(corpo);
+    return { texto: texto, link: lk ? lk[1] : null, nome: nm ? nm[1].trim() : "" };
   }
 
   // ---------- Estado ----------
@@ -404,6 +405,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
       url: linkSeguro(msg.viewUrl) || linkSeguro(x.t.viewUrl) || linkSeguro(m.viewUrl) ||
            "https://mail.google.com/mail/#all/" + encodeURIComponent(x.t.id),
       responder: extra && extra.link ? linkSeguro(extra.link) : null,
+      cliente: (extra && extra.nome) || ((/^(.+?)\s+(?:te\s+)?envi(?:ou|aram)\s+(?:uma\s+|novas\s+)?mensage/i.exec(assunto) || [])[1] || "").trim(),
       auto: classificar(assunto, trecho, email, labels, corpo)
     };
   }
@@ -470,29 +472,70 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     } catch (e) { return false; }
   }
   try { vozLigada = localStorage.getItem("meili-voz") === "1"; } catch (e) {}
-  var FRASE = {
-    venda: ["uma venda", "vendas"],
-    pergunta: ["uma pergunta de cliente", "perguntas de clientes"],
-    mensagem: ["uma mensagem de comprador", "mensagens de compradores"]
-  };
-  function anunciar(itens) {
-    var imp = itens.filter(function (it) { return catDe(it) !== "outros"; });
-    if (!imp.length) return;
-    var texto;
-    if (imp.length === 1) {
-      var it = imp[0], a = it.assunto.length > 90 ? it.assunto.slice(0, 90) + "…" : it.assunto;
-      texto = "Chegou " + FRASE[catDe(it)][0] + (it.loja ? " na " + it.loja : "") + ": " + a + ".";
-    } else {
-      var n = { venda: 0, pergunta: 0, mensagem: 0 };
-      imp.forEach(function (it) { n[catDe(it)]++; });
-      var partes = ["venda", "pergunta", "mensagem"].filter(function (c) { return n[c]; }).map(function (c) {
-        return n[c] === 1 ? FRASE[c][0] : n[c] + " " + FRASE[c][1];
-      });
-      texto = "Chegaram " + (partes.length > 1 ? partes.slice(0, -1).join(", ") + " e " + partes[partes.length - 1] : partes[0]) + ".";
-    }
-    ultimoAviso = { texto: texto, em: Date.now() };
-    falar(texto);
+  // Avisos falados:
+  //  venda    → som de caixa registradora + "Saiu uma venda na Loja X." (sem dizer o item)
+  //  pergunta → "Chegou uma pergunta na Loja X."
+  //  mensagem → "<nome do cliente> enviou uma mensagem na Loja X."
+  function fraseDe(it) {
+    var c = catDe(it), loja = it.loja ? " na " + it.loja : "";
+    if (c === "venda") return "Saiu uma venda" + loja + ".";
+    if (c === "pergunta") return "Chegou uma pergunta" + loja + ".";
+    if (c === "mensagem") return (it.cliente ? it.cliente + " enviou uma mensagem" : "Chegou uma mensagem de cliente") + loja + ".";
+    return "";
   }
+  function anunciar(itens) {
+    var imp = itens.filter(function (it) { return catDe(it) !== "outros"; })
+      .sort(function (a, b) { return a.data - b.data; });
+    if (!imp.length) return;
+    var frases = imp.slice(0, 6).map(fraseDe);
+    if (imp.length > 6) frases.push("E mais " + (imp.length - 6) + " avisos.");
+    var texto = frases.join(" ");
+    var temVenda = imp.some(function (it) { return catDe(it) === "venda"; });
+    ultimoAviso = { texto: texto, em: Date.now() };
+    if (temVenda && vozLigada && !document.hidden && tocarCaixa()) { setTimeout(function () { falar(texto); }, 1400); }
+    else { if (temVenda && vozLigada) caixaPendente = true; falar(texto); }
+  }
+
+  // ---------- Som de caixa registradora (gerado no navegador, sem arquivo) ----------
+  var audioCtx = null, caixaPendente = false;
+  function prepararAudio() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      if (!audioCtx) audioCtx = new AC();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      return audioCtx;
+    } catch (e) { return null; }
+  }
+  function tocarCaixa() {
+    var ctx = prepararAudio();
+    if (!ctx || ctx.state !== "running") return false;
+    var t0 = ctx.currentTime + 0.02, saida = ctx.createGain();
+    saida.gain.value = 0.55; saida.connect(ctx.destination);
+    // "tchac": gaveta e teclas (ruído curto filtrado)
+    function batida(t, dur, freq) {
+      var n = Math.floor(ctx.sampleRate * dur), buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+      for (var i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+      var src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      src.buffer = buf; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = 0.9; g.gain.value = 0.9;
+      src.connect(f); f.connect(g); g.connect(saida); src.start(t);
+    }
+    batida(t0, 0.06, 2500); batida(t0 + 0.09, 0.05, 3200); batida(t0 + 0.2, 0.14, 900);
+    // "tchiiim": sino da caixa
+    function sino(t, freq, vol, dur) {
+      [1, 2.76, 5.4].forEach(function (h, k) {
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = "sine"; o.frequency.value = freq * h;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vol / (k + 1), t + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur / (k + 1));
+        o.connect(g); g.connect(saida); o.start(t); o.stop(t + dur + 0.05);
+      });
+    }
+    sino(t0 + 0.32, 1568, 0.5, 1.1); sino(t0 + 0.36, 2093, 0.35, 1.0);
+    return true;
+  }
+
   function falar(texto) {
     if (!vozLigada || (modoVoz !== "claude" && modoVoz !== "navegador")) return;
     if (document.hidden) { falaPendente = texto; return; }
@@ -531,7 +574,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     b.setAttribute("aria-pressed", vozLigada ? "true" : "false");
     b.textContent = vozLigada ? "Voz ligada" : "Ligar avisos de voz";
   }
-  var CONFIRMA = "Avisos de voz ligados. Vou avisar quando chegar venda, pergunta ou mensagem de comprador.";
+  var CONFIRMA = "Avisos de voz ligados. Vou avisar quando sair uma venda e quando chegar pergunta ou mensagem de cliente.";
   $("voz").addEventListener("click", function () {
     if (modoVoz === "negada") {
       if (permissoes && permissoes.manage) permissoes.manage().then(iniciarVoz, function () {
@@ -541,6 +584,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     }
     vozLigada = !vozLigada;
     try { localStorage.setItem("meili-voz", vozLigada ? "1" : "0"); } catch (e) {}
+    if (vozLigada) prepararAudio();
     atualizarBotaoVoz();
     if (!vozLigada) {
       if (modoVoz === "claude") tts.stop().catch(function () {});
@@ -556,10 +600,17 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
       });
     }
   });
-  document.addEventListener("pointerdown", function () { if (falaPendente) falar(falaPendente); }, true);
+  document.addEventListener("pointerdown", function () {
+    if (vozLigada) prepararAudio();
+    if (caixaPendente) { caixaPendente = false; if (falaPendente && tocarCaixa()) { var f = falaPendente; falaPendente = null; setTimeout(function () { falar(f); }, 1400); return; } }
+    if (falaPendente) falar(falaPendente);
+  }, true);
   document.addEventListener("keydown", function () { if (falaPendente) falar(falaPendente); }, true);
   document.addEventListener("visibilitychange", function () {
-    if (!document.hidden && falaPendente) falar(falaPendente);
+    if (!document.hidden && falaPendente) {
+      if (caixaPendente && tocarCaixa()) { caixaPendente = false; var f = falaPendente; falaPendente = null; setTimeout(function () { falar(f); }, 1400); }
+      else falar(falaPendente);
+    }
     if (!document.hidden && Date.now() > proxima) verificarNovos();
   });
 
