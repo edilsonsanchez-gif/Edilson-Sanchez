@@ -216,22 +216,29 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
       "nova venda","venda realizada","venda aprovada","voce vendeu","pedido","novo pedido","pedido confirmado",
       "pedido realizado","compra aprovada","compra confirmada","compra realizada","pagamento aprovado",
       "pagamento confirmado","pagamento recebido","pix recebido","transacao aprovada","comprovante de pagamento",
-      "nota fiscal","nf-e","boleto pago","checkout","order","new order","payment received","purchase"] },
+      "nota fiscal","nf-e","boleto pago","checkout","order","new order","payment received","purchase",
+      "vendeu","voce fez uma venda","fez uma venda","venda concretizada","nova venda no mercado livre","prepare o pacote",
+      "imprima a etiqueta","imprimir a etiqueta","despache","envie o produto","pagamento creditado","dinheiro disponivel"] },
     pergunta: { rotulo: "Pergunta de cliente", palavras: [
       "duvida","pergunta","gostaria de saber","queria saber","como faco","como funciona","quanto custa",
       "qual o valor","qual o preco","qual o prazo","tem disponivel","tem em estoque","voces entregam",
       "voces tem","poderia me informar","pode me informar","poderiam me","orcamento","informacao",
-      "informacoes","e possivel","consigo","aceita","parcela"] },
+      "informacoes","e possivel","consigo","aceita","parcela",
+      "te fizeram uma pergunta","recebeu uma pergunta","nova pergunta","responda a pergunta","perguntou"] },
     mensagem: { rotulo: "Mensagem de cliente", palavras: [
       "obrigado","obrigada","agradeco","parabens","elogio","reclamacao","problema","nao recebi","atraso",
       "troca","devolucao","cancelar","cancelamento","feedback","recebi o produto","meu pedido","minha compra",
-      "minha encomenda","rastreio","defeito"] },
+      "minha encomenda","rastreio","defeito",
+      "mensagem do comprador","mensagem de comprador","nova mensagem","te enviou uma mensagem","enviou uma mensagem",
+      "reclamacao aberta","abriu uma reclamacao","mediacao","pos-venda"] },
     outros: { rotulo: "Outros avisos", palavras: [
       "descadastrar","cancelar inscricao","unsubscribe","newsletter","nao responda","no-reply","noreply",
       "alerta de seguranca","verifique seu e-mail","codigo de verificacao","seu codigo","verification code",
       "security alert","验证码"] }
   };
   var DESEMPATE = ["mensagem", "pergunta", "venda", "outros"];
+  var AUTOMATICO = /no-?reply|nao-?responda|newsletter|news@|noticias|novidades|comunicacao|marketing|campanha|relacionamento|ofertas|promo|mailer|bounce|notifica/;
+  var MARKETPLACE = /mercadoli(vre|bre)|mercadopago|shopee|magalu|magazineluiza|americanas|amazon|nuvemshop|shopify|hotmart|kiwify|elo7|olx/;
   var SAUDACOES = ["tudo bem?", "tudo bom?", "como vai?", "como voce esta?", "tudo certo?"];
   var ROTULOS_AUTOMATICOS = { CATEGORY_PROMOTIONS: "Promoções", CATEGORY_SOCIAL: "Social", CATEGORY_FORUMS: "Fóruns" };
 
@@ -263,8 +270,17 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
       if (ROTULOS_AUTOMATICOS[l]) { pts.outros += 2; motivos.push("aba " + ROTULOS_AUTOMATICOS[l] + " do Gmail"); }
     });
     if (pts.venda > 0) pts.outros = 0; // venda enviada por no-reply continua sendo venda
+    // Avisos de marketplace (Mercado Livre, Shopee...) chegam de no-reply e na aba Atualizações:
+    // se trazem venda, pergunta ou mensagem, não são "outros".
+    if (MARKETPLACE.test(r) && (pts.venda || pts.pergunta || pts.mensagem)) { pts.outros = 0; motivos.push("aviso de marketplace"); }
     var melhor = DESEMPATE.slice().sort(function (x, y) { return pts[y] - pts[x] || DESEMPATE.indexOf(x) - DESEMPATE.indexOf(y); })[0];
-    if (pts[melhor] === 0) { melhor = "mensagem"; motivos.push("nenhuma palavra-chave: tipo padrão"); }
+    if (pts[melhor] === 0) {
+      // Sem palavra-chave: e-mail automático (abas Promoções/Atualizações/Social ou remetente de envio em massa) vira "outros";
+      // e-mail de pessoa, na aba Principal, vira mensagem de cliente.
+      var automatico = (labels || []).some(function (l) { return /^CATEGORY_(PROMOTIONS|UPDATES|SOCIAL|FORUMS)$/.test(l); }) || AUTOMATICO.test(r);
+      melhor = automatico ? "outros" : "mensagem";
+      motivos.push(automatico ? "nenhuma palavra-chave e parece envio automático" : "nenhuma palavra-chave: tipo padrão");
+    }
     return { cat: melhor, motivos: motivos };
   }
 
