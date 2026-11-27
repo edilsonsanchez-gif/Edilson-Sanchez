@@ -10,7 +10,7 @@ ARQUIVO = Path(os.environ.get("ETIQUETAS_CONFIG", Path(__file__).with_name("conf
 
 PADRAO: dict = {
     # Impressora
-    "modo": "rede",              # rede | windows | cups | arquivo
+    "modo": "computador",        # computador (janela de impressão do navegador) | rede | windows | cups | arquivo
     "ip": "192.168.0.100",
     "porta": 9100,
     "nome_impressora": "",       # nome no Windows ou no CUPS (Linux/macOS)
@@ -30,7 +30,7 @@ PADRAO: dict = {
 
 INTEIROS = {"porta", "dpi", "colunas", "escurecimento", "velocidade"}
 DECIMAIS = {"largura_mm", "altura_mm", "espaco_colunas_mm", "margem_esquerda_mm", "ajuste_vertical_mm"}
-OPCOES = {"modo": {"rede", "windows", "cups", "arquivo"}, "layout": {"par", "separado"}, "dpi": {203, 300, 600}}
+OPCOES = {"modo": {"computador", "rede", "windows", "cups", "arquivo"}, "layout": {"par", "separado"}, "dpi": {203, 300, 600}}
 LIMITES = {
     "porta": (1, 65535), "colunas": (1, 4), "escurecimento": (-30, 30), "velocidade": (1, 14),
     "largura_mm": (10, 120), "altura_mm": (10, 120), "espaco_colunas_mm": (0, 20),

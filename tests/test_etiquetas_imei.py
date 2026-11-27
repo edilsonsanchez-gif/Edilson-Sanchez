@@ -98,6 +98,10 @@ class TestImpressoraRede(unittest.TestCase):
         srv.close()
         self.assertEqual(recebido, [b"^XA^XZ"])
 
+    def test_modo_computador_nao_envia(self):
+        with self.assertRaises(impressora.ErroImpressora):
+            impressora.enviar("^XA^XZ", {"modo": "computador"})
+
     def test_erro_sem_impressora(self):
         with self.assertRaises(impressora.ErroImpressora):
             impressora.enviar("^XA^XZ", {"modo": "rede", "ip": "127.0.0.1", "porta": 1})

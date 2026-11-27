@@ -98,18 +98,35 @@ A janela mostra dois endereços:
 - `http://localhost:8100` — para usar no próprio computador;
 - `http://192.168.x.x:8100` — para abrir **no celular** (mesmo Wi-Fi). No celular, o botão **📷 Tirar foto da caixa** abre a câmera.
 
-## Configurar a impressora (⚙️ no fim da página)
+## Imprimir pelo próprio computador (padrão)
+
+Ao tocar em **Imprimir**, a página monta as etiquetas no tamanho exato (40×25 mm, 2 colunas lado a lado, ou seja,
+uma "folha" de **82×25 mm** por fileira) e abre a **janela de impressão** do computador. Funciona com o driver normal da
+Zebra (ZDesigner) ou com qualquer impressora de etiquetas, e também dá para escolher **Salvar como PDF**.
+
+Na janela de impressão (Chrome/Edge):
+1. **Destino**: a impressora de etiquetas.
+2. Em *Mais configurações*: **Margens: Nenhuma** e **Escala: Padrão/100%**.
+3. Nas *Preferências de impressão* do driver da Zebra (Painel de Controle → Impressoras), crie/escolha o papel
+   de **82×25 mm** (largura das 2 colunas + 2 mm de espaço) — faça isso uma vez só.
+
+Se usar o celular, a janela de impressão é a do Android/iPhone (a impressora precisa aparecer para o celular);
+o mais comum é abrir a página no computador ligado à Zebra.
+
+## Enviar ZPL direto para a Zebra (opcional, ⚙️ no fim da página)
+
+Se preferir não usar o driver, troque **Como imprimir** para:
 
 | Ligação | O que preencher |
 |---|---|
-| **Rede** (Ethernet/Wi-Fi) | IP da Zebra e porta `9100` |
-| **USB no Windows** | Nome da impressora como aparece no Windows (ex.: `ZDesigner GC420t`). O envio é em modo RAW pelo spooler, sem instalar nada. |
-| **USB no Linux/macOS** | Nome da fila no CUPS (crie a fila como *Raw*) |
+| **Zebra na rede** (Ethernet/Wi-Fi) | IP da Zebra e porta `9100` |
+| **Zebra USB no Windows** | Nome da impressora como aparece no Windows (ex.: `ZDesigner GC420t`). O envio é em modo RAW pelo spooler, sem instalar nada. |
+| **Zebra USB no Linux/macOS** | Nome da fila no CUPS (crie a fila como *Raw*) |
 
-Depois clique em **Imprimir etiqueta de teste**.
+As mudanças nas configurações são salvas sozinhas. Clique em **Imprimir etiqueta de teste** para conferir.
 
-Etiqueta (padrão): 203 dpi, 40×25 mm, 2 colunas, 2 mm entre colunas. Se a impressão sair deslocada, ajuste
-**Espaço entre colunas**, **Margem esquerda** e **Ajuste vertical**. Para Zebra de 300 dpi, troque a resolução.
+Etiqueta (padrão): 40×25 mm, 2 colunas, 2 mm entre colunas. Se a impressão sair deslocada, ajuste
+**Espaço entre colunas**, **Margem esquerda** e **Ajuste vertical**. No modo ZPL direto, para Zebra de 300 dpi, troque a resolução.
 
 **Layout**
 - *IMEI 1 na esquerda, IMEI 2 na direita* (padrão): cada caixa usa uma fileira — um IMEI por etiqueta.

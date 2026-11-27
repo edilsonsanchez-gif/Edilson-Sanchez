@@ -132,7 +132,61 @@
   }
 
   // ---------- impressão ----------
+  // --- Pelo computador: monta as etiquetas em milímetros e abre a janela de impressão ---
+  const svgNS = "http://www.w3.org/2000/svg";
+  function elemento(pai, esq, topo, larg, alt, filho) {
+    const d = document.createElement("div"); d.className = "el";
+    Object.assign(d.style, { left: esq + "mm", top: topo + "mm", width: larg + "mm", height: alt + "mm" });
+    if (typeof filho === "string") { d.textContent = filho; d.style.fontSize = alt + "mm"; } else d.appendChild(filho);
+    pai.appendChild(d);
+  }
+  function codigoBarras(num, largMax, alt) {
+    const svg = document.createElementNS(svgNS, "svg");
+    JsBarcode(svg, num, { format: "CODE128", width: 1, height: 10, displayValue: false, margin: 0, background: "#ffffff" });
+    const modulos = parseFloat(svg.getAttribute("width"));
+    const modMm = Math.min(0.25, largMax / modulos); // 0,25 mm = 2 pontos a 203 dpi ou 3 pontos a 300 dpi: barras nítidas
+    svg.setAttribute("viewBox", `0 0 ${modulos} 10`); svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("width", modulos * modMm + "mm"); svg.setAttribute("height", alt + "mm");
+    return { svg, larg: modulos * modMm };
+  }
+  function desenharEtiqueta(pai, e, x0, W, H) {
+    const margem = Math.max(0.5, W * 0.03), area = W - 2 * margem, topo = H * 0.06;
+    let y = topo;
+    if (e.d) { const h = Math.max(1.5, H * 0.085); elemento(pai, x0 + margem, y, area, h, e.d); y += h + H * 0.03; }
+    const n = e.linhas.length, hTxt = Math.max(1.5, H * 0.09), folga = H * 0.015, entre = H * 0.06;
+    const hBarra = Math.max(2.5, (H - y - topo - entre * (n - 1)) / n - hTxt - folga);
+    for (const [rot, num] of e.linhas) {
+      const cb = codigoBarras(num, W * 0.92, hBarra);
+      elemento(pai, x0 + (W - cb.larg) / 2, y, cb.larg, hBarra, cb.svg);
+      y += hBarra + folga;
+      elemento(pai, x0 + margem, y, area, hTxt, `${rot}: ${num}`);
+      y += hTxt + entre;
+    }
+  }
+  function imprimirNoComputador(itens) {
+    const etqs = montarEtiquetas(itens, cfg.layout);
+    if (!etqs.length) throw new Error("Nenhuma etiqueta para imprimir.");
+    const cols = cfg.colunas, W = cfg.largura_mm, H = cfg.altura_mm, gap = cfg.espaco_colunas_mm;
+    const larguraPag = cfg.margem_esquerda_mm + cols * W + (cols - 1) * gap;
+    $("estiloPagina").textContent = `@page{size:${larguraPag}mm ${H}mm;margin:0}`;
+    const box = $("impressao"); box.innerHTML = "";
+    for (let i = 0; i < etqs.length; i += cols) {
+      const pag = document.createElement("div"); pag.className = "pagina";
+      Object.assign(pag.style, { width: larguraPag + "mm", height: H + "mm" });
+      const conteudo = document.createElement("div"); conteudo.className = "el";
+      Object.assign(conteudo.style, { left: 0, top: cfg.ajuste_vertical_mm + "mm", width: "100%", height: "100%", overflow: "visible" });
+      for (let c = 0; c < cols && etqs[i + c]; c++) desenharEtiqueta(conteudo, etqs[i + c], cfg.margem_esquerda_mm + c * (W + gap), W, H);
+      pag.appendChild(conteudo); box.appendChild(pag);
+    }
+    window.print();
+    return etqs.length;
+  }
+
   async function imprimir(itens, botao) {
+    if (cfg && cfg.modo === "computador") {
+      try { const n = imprimirNoComputador(itens); aviso(`${n} etiqueta(s) enviadas para a janela de impressão.`); return true; }
+      catch (e) { aviso(e.message, true); return false; }
+    }
     const txt = botao.textContent; botao.disabled = true; botao.textContent = "Enviando…";
     try {
       const r = await api("api/imprimir", { itens });
@@ -254,6 +308,8 @@
   function preencherCfg() {
     const form = $("cfg");
     for (const el of form.elements) if (el.name && cfg[el.name] !== undefined) el.value = cfg[el.name];
+    const larg = cfg.margem_esquerda_mm + cfg.colunas * cfg.largura_mm + (cfg.colunas - 1) * cfg.espaco_colunas_mm;
+    $("papelTxt").textContent = `${+larg.toFixed(1)}×${cfg.altura_mm} mm`;
     mostrarModo();
   }
   function mostrarModo() {
@@ -312,8 +368,13 @@
   $("auto").checked = !!ler(CHAVE_AUTO, false);
   $("auto").onchange = () => gravar(CHAVE_AUTO, $("auto").checked);
   $("cfg").elements.modo.onchange = mostrarModo;
+  $("cfg").addEventListener("change", salvarCfg); // salva sozinho a cada mudança
   $("btnSalvarCfg").onclick = salvarCfg;
   $("btnTeste").onclick = async () => {
+    if (cfg.modo === "computador") {
+      imprimirNoComputador([{ imei1: "490154203237518", imei2: "356938035643809", descricao: "TESTE DE IMPRESSAO", copias: cfg.layout === "par" ? cfg.colunas : 1 }]);
+      return;
+    }
     try { const r = await api("api/teste", {}); aviso("Teste " + r.destino); } catch (e) { aviso(e.message, true); }
   };
   $("detCfg").addEventListener("toggle", () => { if ($("detCfg").open) carregarImpressoras(); });

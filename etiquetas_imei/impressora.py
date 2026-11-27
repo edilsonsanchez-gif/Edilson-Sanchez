@@ -17,6 +17,8 @@ def enviar(zpl: str, cfg: dict) -> str:
     """Envia e devolve uma frase dizendo para onde foi."""
     dados = zpl.encode("utf-8")
     modo = cfg.get("modo", "rede")
+    if modo == "computador":
+        raise ErroImpressora("No modo 'Pelo computador' a impressão é feita pela janela de impressão do navegador.")
     if modo == "rede":
         return _rede(dados, str(cfg.get("ip", "")).strip(), int(cfg.get("porta", 9100)))
     if modo == "windows":
