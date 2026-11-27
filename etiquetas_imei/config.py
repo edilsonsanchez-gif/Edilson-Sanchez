@@ -17,10 +17,10 @@ PADRAO: dict = {
     "arquivo_saida": "etiquetas.zpl",
     # Etiqueta
     "dpi": 203,                  # 203 (8 pontos/mm) ou 300 (12 pontos/mm)
-    "largura_mm": 40.0,
+    "largura_mm": 50.0,
     "altura_mm": 25.0,
     "colunas": 2,
-    "espaco_colunas_mm": 2.0,    # espaço entre as duas etiquetas da mesma fileira
+    "espaco_colunas_mm": 1.0,    # espaço entre as duas etiquetas da mesma fileira
     "margem_esquerda_mm": 0.0,
     "ajuste_vertical_mm": 0.0,   # move tudo para baixo (+) ou para cima (-)
     "layout": "separado",        # separado: IMEI 1 na etiqueta da esquerda e IMEI 2 na da direita | par: os dois IMEIs na mesma etiqueta

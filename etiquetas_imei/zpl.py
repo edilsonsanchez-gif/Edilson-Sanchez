@@ -18,17 +18,27 @@ class Etiqueta:
     descricao: str = ""
 
 
-def _modulos_code128_digitos(n: int) -> int:
-    """Largura em módulos de um Code 128 só com dígitos (subconjunto C, troca para B no último se for ímpar)."""
-    pares, sobra = divmod(n, 2)
-    return 11 + 11 * pares + (22 if sobra else 0) + 11 + 13
+def _modulos(n: int, pares: int) -> int:
+    """Módulos de um Code 128 com `pares` pares de dígitos no subconjunto C e o resto, um a um, no B."""
+    soltos = n - 2 * pares
+    return 11 + 11 * pares + (11 if pares and soltos else 0) + 11 * soltos + 24
 
 
-def _dados_code128(numero: str) -> str:
-    """Campo ^FD com subconjuntos explícitos: >; inicia Code C, >6 troca para Code B no último dígito ímpar."""
-    if len(numero) % 2 == 0:
-        return ">;" + numero
-    return ">;" + numero[:-1] + ">6" + numero[-1]
+def plano_code128(numero: str, largura: int) -> tuple[int, int, str]:
+    """(módulo em pontos, total de módulos, campo ^FD) para o código ocupar ~88% da largura.
+
+    A barra mais fina tem um número inteiro de pontos; para o código ficar mais largo, parte dos dígitos
+    vai para o subconjunto B (11 módulos por dígito em vez de 11 por par). >; inicia em C, >: inicia em B, >6 troca para B.
+    """
+    n = len(numero)
+    pares = n // 2
+    modulo = max(1, largura // (_modulos(n, pares) + 20))
+    limite = int(largura * 0.88 / modulo)
+    while pares > 0 and _modulos(n, pares - 1) <= limite:
+        pares -= 1
+    c, b = numero[: 2 * pares], numero[2 * pares:]
+    dados = ">:" + b if pares == 0 else ">;" + c + (">6" + b if b else "")
+    return modulo, _modulos(n, pares), dados
 
 
 def _texto(x: int, y: int, largura: int, altura: int, texto: str) -> str:
@@ -46,26 +56,25 @@ def _campos_etiqueta(et: Etiqueta, x0: int, larg: int, alt: int) -> list[str]:
     campos: list[str] = []
     margem = max(4, round(larg * 0.03))
     area = larg - 2 * margem
-    topo = round(alt * 0.06)
+    topo = base = round(alt * 0.08)
     y = topo
     if et.descricao:
-        h_desc = max(12, round(alt * 0.085))
+        h_desc = max(12, round(alt * 0.09))
         campos.append(_texto(x0 + margem, y, area, h_desc, _cortar(et.descricao, area, h_desc)))
         y += h_desc + round(alt * 0.03)
 
     n = len(et.linhas)
-    h_txt = max(12, round(alt * 0.09))
-    folga_txt = max(2, round(alt * 0.015))
+    h_txt = max(12, round(alt * 0.11))
+    folga_txt = max(2, round(alt * 0.02))
     entre = round(alt * 0.06)
-    livre = alt - y - topo - entre * (n - 1)
+    livre = alt - y - base - entre * (n - 1)
     bloco = livre / n
     h_barra = max(20, int(bloco - h_txt - folga_txt))
 
     for rotulo, numero in et.linhas:
-        mods = _modulos_code128_digitos(len(numero))
-        modulo = max(1, larg // (mods + 20))           # 10 módulos de zona livre de cada lado
+        modulo, mods, dados = plano_code128(numero, larg)
         x_barra = x0 + (larg - mods * modulo) // 2
-        campos.append(f"^BY{modulo},3,{h_barra}^FO{x_barra},{round(y)}^BCN,{h_barra},N,N,N^FD{_dados_code128(numero)}^FS")
+        campos.append(f"^BY{modulo},3,{h_barra}^FO{x_barra},{round(y)}^BCN,{h_barra},N,N,N^FD{dados}^FS")
         y += h_barra + folga_txt
         campos.append(_texto(x0 + margem, round(y), area, h_txt, f"{rotulo}: {numero}"))
         y += h_txt + entre

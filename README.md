@@ -73,10 +73,10 @@ e guarda as correções de tipo só para quem as fez. Não precisa de servidor n
 
 ---
 
-# Etiquetas IMEI (Zebra 40×25 mm, 2 colunas)
+# Etiquetas IMEI (Zebra 50×25 mm, 2 colunas)
 
 Programa para **fotografar a etiqueta da caixa do celular**, ler o **IMEI 1 e o IMEI 2** e imprimir etiquetas
-com código de barras numa **impressora Zebra**, no rolo de **40×25 mm com 2 colunas**.
+com código de barras numa **impressora Zebra**, no rolo de **50×25 mm com 2 colunas** (medidas ajustáveis).
 
 - Lê os **códigos de barras** da foto; se faltar algum, lê os **números impressos (OCR)**.
 - Confere cada IMEI pelo dígito verificador (Luhn) antes de imprimir.
@@ -100,7 +100,7 @@ A janela mostra dois endereços:
 
 ## Imprimir pelo próprio computador (padrão)
 
-Ao tocar em **Imprimir**, a página monta as etiquetas no tamanho exato (40×25 mm, 2 colunas lado a lado, ou seja,
+Ao tocar em **Imprimir**, a página monta as etiquetas no tamanho exato (50×25 mm, 2 colunas lado a lado, ou seja,
 uma "folha" de **82×25 mm** por fileira) e abre a **janela de impressão** do computador. Funciona com o driver normal da
 Zebra (ZDesigner) ou com qualquer impressora de etiquetas, e também dá para escolher **Salvar como PDF**.
 
@@ -108,7 +108,7 @@ Na janela de impressão (Chrome/Edge):
 1. **Destino**: a impressora de etiquetas.
 2. Em *Mais configurações*: **Margens: Nenhuma** e **Escala: Padrão/100%**.
 3. Nas *Preferências de impressão* do driver da Zebra (Painel de Controle → Impressoras), crie/escolha o papel
-   de **82×25 mm** (largura das 2 colunas + 2 mm de espaço) — faça isso uma vez só.
+   de **101×25 mm** (largura das 2 colunas + 1 mm de espaço) — faça isso uma vez só.
 
 Se usar o celular, a janela de impressão é a do Android/iPhone (a impressora precisa aparecer para o celular);
 o mais comum é abrir a página no computador ligado à Zebra.
@@ -125,7 +125,7 @@ Se preferir não usar o driver, troque **Como imprimir** para:
 
 As mudanças nas configurações são salvas sozinhas. Clique em **Imprimir etiqueta de teste** para conferir.
 
-Etiqueta (padrão): 40×25 mm, 2 colunas, 2 mm entre colunas. Se a impressão sair deslocada, ajuste
+Etiqueta (padrão): 50×25 mm, 2 colunas, 2 mm entre colunas. Se a impressão sair deslocada, ajuste
 **Espaço entre colunas**, **Margem esquerda** e **Ajuste vertical**. No modo ZPL direto, para Zebra de 300 dpi, troque a resolução.
 
 **Layout**

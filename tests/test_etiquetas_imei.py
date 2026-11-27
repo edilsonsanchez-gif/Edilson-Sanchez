@@ -31,10 +31,10 @@ class TestZpl(unittest.TestCase):
         texto, qtd = zpl.gerar([{"imei1": I1, "imei2": I2}], CFG)
         self.assertEqual(qtd, 2)
         self.assertEqual(texto.count("^XA"), 1)
-        self.assertIn("^PW656", texto)   # 40 + 2 + 40 mm a 8 pontos/mm
+        self.assertIn("^PW808", texto)   # 50 + 1 + 50 mm a 8 pontos/mm
         self.assertIn("^LL200", texto)   # 25 mm
-        self.assertIn(">;49015420323751>68", texto)
-        self.assertIn(">;35693803564380>69", texto)
+        self.assertIn(">;49015420>63237518", texto)   # 4 pares em C + 7 dígitos em B: código mais largo
+        self.assertIn(">;35693803>65643809", texto)
         self.assertLess(texto.index("IMEI 1"), texto.index("IMEI 2"))
 
     def test_copias_viram_quantidade(self):
@@ -50,14 +50,15 @@ class TestZpl(unittest.TestCase):
         self.assertEqual(qtd, 3)
         self.assertEqual(texto.count("^XA"), 2)  # 2 fileiras: (1, 2) e (3, vazio)
 
-    def test_codigo_cabe_na_etiqueta(self):
-        for dpi, pmm in ((203, 8), (300, 12)):
-            texto, _ = zpl.gerar([{"imei1": I1, "imei2": I2}], {**CFG, "dpi": dpi})
-            largura = 40 * pmm
-            for linha in texto.split("^BY")[1:]:
-                modulo = int(linha.split(",")[0])
-                x = int(linha.split("^FO")[1].split(",")[0]) % (largura + 2 * pmm)
-                self.assertLessEqual(x + 134 * modulo, largura)
+    def test_codigo_ocupa_a_etiqueta_sem_passar(self):
+        for largura_mm in (40, 50):
+            for dpi, pmm in ((203, 8), (300, 12)):
+                largura = round(largura_mm * pmm)
+                modulo, mods, dados = zpl.plano_code128(I1, largura)
+                self.assertLessEqual(mods * modulo + 20 * modulo, largura)   # cabe com zona livre
+                self.assertGreaterEqual(mods * modulo, largura * 0.65)       # e ocupa boa parte da etiqueta
+                self.assertEqual(dados.replace(">;", "").replace(">:", "").replace(">6", ""), I1)
+        self.assertEqual(zpl.plano_code128(I1, 320)[2], ">;49015420323751>68")   # 40 mm: tudo em pares
 
     def test_erros(self):
         with self.assertRaises(zpl.ErroEtiqueta):

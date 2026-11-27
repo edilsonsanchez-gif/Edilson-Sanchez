@@ -76,7 +76,7 @@ details summary{cursor:pointer;font-weight:600}
 <div class="app">
   <header>
     <h1>Etiquetas IMEI</h1>
-    <p>Foto da caixa → IMEI 1 e IMEI 2 → arquivo de etiquetas <span id="tamanho">40×25 mm, 2 colunas</span></p>
+    <p>Foto da caixa → IMEI 1 e IMEI 2 → arquivo de etiquetas <span id="tamanho">50×25 mm, 2 colunas</span></p>
   </header>
 
   <div class="cols">
@@ -190,8 +190,11 @@ details summary{cursor:pointer;font-weight:600}
   const digitos = (s) => String(s || "").replace(/\D/g, "");
   const ler = (k, p) => { try { const v = localStorage.getItem(k); return v == null ? p : JSON.parse(v); } catch (_) { return p; } };
   const gravar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} };
-  const PADRAO = { formato: "zpl", gap_mm: 3, layout: "separado", largura_mm: 40, altura_mm: 25, colunas: 2, espaco_colunas_mm: 2, margem_esquerda_mm: 0, ajuste_vertical_mm: 0 };
-  const cfg = Object.assign({}, PADRAO, ler("etq-imei-cfg", {}));
+  const PADRAO = { formato: "zpl", gap_mm: 3, layout: "separado", largura_mm: 50, altura_mm: 25, colunas: 2, espaco_colunas_mm: 1, margem_esquerda_mm: 0, ajuste_vertical_mm: -2 };
+  const salvo = ler("etq-imei-cfg", {});
+  // Versão 2: medidas do rolo real (50x25 mm). Ajustes de tamanho salvos antes disso voltam ao novo padrão.
+  if (salvo.v !== 2) for (const k of ["largura_mm", "altura_mm", "espaco_colunas_mm", "margem_esquerda_mm", "ajuste_vertical_mm"]) delete salvo[k];
+  const cfg = Object.assign({}, PADRAO, salvo, { v: 2 });
   let lista = ler("etq-imei-lista", []).filter((f) => f && (f.imei1 || f.imei2));
 
   let timer;
@@ -258,13 +261,13 @@ details summary{cursor:pointer;font-weight:600}
   }
   const larguraPagina = () => cfg.margem_esquerda_mm + cfg.colunas * cfg.largura_mm + (cfg.colunas - 1) * cfg.espaco_colunas_mm;
 
-  // Mesmas proporções da versão ZPL: margem 6%, descrição 8,5%, texto 9%, espaço entre códigos 6% da altura.
+  // Proporções (iguais às da versão do computador): margem de 8% em cima e embaixo, descrição 9%, número 11%.
   function medidas(e, W, H) {
-    const topo = H * 0.06, margem = Math.max(0.5, W * 0.03);
+    const topo = H * 0.08, base = H * 0.08, margem = Math.max(0.5, W * 0.03);
     let y = topo; const partes = [];
-    if (e.d) { const h = Math.max(1.5, H * 0.085); partes.push({ tipo: "texto", x: margem, y, w: W - 2 * margem, h, txt: e.d }); y += h + H * 0.03; }
-    const n = e.linhas.length, hTxt = Math.max(1.5, H * 0.09), folga = H * 0.015, entre = H * 0.06;
-    const hBarra = Math.max(2.5, (H - y - topo - entre * (n - 1)) / n - hTxt - folga);
+    if (e.d) { const h = Math.max(1.5, H * 0.09); partes.push({ tipo: "texto", x: margem, y, w: W - 2 * margem, h, txt: e.d }); y += h + H * 0.03; }
+    const n = e.linhas.length, hTxt = Math.max(1.5, H * 0.11), folga = H * 0.02, entre = H * 0.06;
+    const hBarra = Math.max(2.5, (H - y - base - entre * (n - 1)) / n - hTxt - folga);
     for (const [rot, num] of e.linhas) {
       partes.push({ tipo: "barra", y, h: hBarra, num });
       y += hBarra + folga;
@@ -274,6 +277,21 @@ details summary{cursor:pointer;font-weight:600}
     return partes;
   }
   function modulosCode128(num) { const o = {}; JsBarcode(o, num, { format: "CODE128" }); return o.encodings.map((e) => e.data).join(""); }
+  /**
+   * Code 128 só com dígitos que ocupe ~88% da largura da etiqueta. A largura da barra é um número inteiro de pontos,
+   * então o código "cresce" codificando parte dos dígitos um a um (subconjunto B) em vez de em pares (C).
+   * Devolve a largura do módulo (m), o total de módulos e o campo ^FD do ZPL (>; = começa em C, >: = começa em B, >6 = troca para B).
+   */
+  function planoCode128(num, Wd) {
+    const n = num.length, maxP = Math.floor(n / 2);
+    const mods = (p) => 11 + 11 * p + (p > 0 && n - 2 * p > 0 ? 11 : 0) + 11 * (n - 2 * p) + 24;
+    const m = Math.max(1, Math.floor(Wd / (mods(maxP) + 20)));
+    const limite = Math.floor((Wd * 0.88) / m);
+    let p = maxP;
+    while (p > 0 && mods(p - 1) <= limite) p--;
+    const c = num.slice(0, 2 * p), b = num.slice(2 * p);
+    return { m, mods: mods(p), dados: p === 0 ? ">:" + b : ">;" + c + (b ? ">6" + b : "") };
+  }
 
   function gerarPdf(itens) {
     const etqs = montar(itens);
@@ -293,7 +311,7 @@ details summary{cursor:pointer;font-weight:600}
             doc.text(p.txt, x0 + p.x + p.w / 2, y0 + p.y + p.h, { align: "center", baseline: "alphabetic" });
           } else {
             const bits = modulosCode128(p.num);
-            const mod = Math.min(0.25, (W * 0.92) / bits.length); // 0,25 mm = 2 pontos a 203 dpi / 3 a 300 dpi
+            const mod = (W * 0.86) / bits.length;
             let x = x0 + (W - bits.length * mod) / 2;
             for (let k = 0; k < bits.length;) {
               let j = k; while (j < bits.length && bits[j] === bits[k]) j++;
@@ -332,8 +350,10 @@ details summary{cursor:pointer;font-weight:600}
         const y = Math.max(0, Math.round((p.y + cfg.ajuste_vertical_mm) * PMM)), h = Math.round(p.h * PMM);
         if (p.tipo === "texto") cb({ tipo: "texto", x: Math.round((x0 + p.x) * PMM), y, w: Math.round(p.w * PMM), h, txt: ascii(p.txt) });
         else {
-          const Wd = Math.round(W * PMM), mods = modulosCode128(p.num).length, m = Math.max(1, Math.floor(Wd / (mods + 20)));
-          cb({ tipo: "barra", x: Math.round(x0 * PMM) + Math.floor((Wd - mods * m) / 2), y, h, m, num: p.num });
+          const Wd = Math.round(W * PMM), pl = planoCode128(p.num, Wd);
+          const modsEpl = modulosCode128(p.num).length, mEpl = Math.max(1, Math.floor(Wd / (modsEpl + 20)));
+          cb({ tipo: "barra", y, h, num: p.num, dados: pl.dados, m: pl.m, x: Math.round(x0 * PMM) + Math.floor((Wd - pl.mods * pl.m) / 2),
+               mEpl, xEpl: Math.round(x0 * PMM) + Math.floor((Wd - modsEpl * mEpl) / 2) });
         }
       }
     });
@@ -341,12 +361,11 @@ details summary{cursor:pointer;font-weight:600}
   const larguraDots = () => Math.round(larguraPagina() * PMM), alturaDots = () => Math.round(cfg.altura_mm * PMM);
   function gerarZpl(itens) {
     const { blocos, qtd } = fileiras(itens);
-    const sub = (n) => (n.length % 2 ? ">;" + n.slice(0, -1) + ">6" + n.slice(-1) : ">;" + n);
     const partes = blocos.map(({ fileira, qtd: q }) => {
       let z = `^XA^PW${larguraDots()}^LL${alturaDots()}^LH0,0`;
       percorrer(fileira, (f) => {
         if (f.tipo === "texto") z += `^FO${f.x},${f.y}^A0N,${f.h},${Math.max(8, Math.round(f.h * 0.85))}^FB${f.w},1,0,C^FD${f.txt.replace(/[\^~]/g, " ")}^FS`;
-        else z += `^BY${f.m},3,${f.h}^FO${f.x},${f.y}^BCN,${f.h},N,N,N^FD${sub(f.num)}^FS`;
+        else z += `^BY${f.m},3,${f.h}^FO${f.x},${f.y}^BCN,${f.h},N,N,N^FD${f.dados}^FS`;
       });
       return z + `^PQ${q},0,1,Y^XZ`;
     });
@@ -364,7 +383,7 @@ details summary{cursor:pointer;font-weight:600}
           const largura = fonte[1] * f.txt.length;
           const x = f.x + Math.max(0, Math.floor((f.w - largura) / 2)), y = f.y + Math.max(0, f.h - fonte[2]);
           e += `A${x},${y},0,${fonte[0]},1,1,N,"${f.txt.replace(/["\\]/g, " ")}"\r\n`;
-        } else e += `B${f.x},${f.y},0,1,${f.m},${f.m * 2},${f.h},N,"${f.num}"\r\n`;
+        } else e += `B${f.xEpl},${f.y},0,1,${f.mEpl},${f.mEpl * 2},${f.h},N,"${f.num}"\r\n`;
       });
       return e + `P${q}\r\n`;
     });
