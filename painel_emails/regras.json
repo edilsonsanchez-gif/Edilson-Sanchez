@@ -1,0 +1,51 @@
+{
+  "_comentario": "Edite as palavras-chave à vontade. Não precisa de acento nem maiúsculas: o texto é normalizado antes da comparação. Palavras no assunto valem o dobro. A categoria com mais pontos vence; sem nenhum ponto, o e-mail vira 'mensagem'.",
+  "categorias": {
+    "venda": {
+      "rotulo": "Venda de produto",
+      "palavras": [
+        "nova venda", "venda realizada", "venda aprovada", "voce vendeu",
+        "pedido", "novo pedido", "pedido confirmado", "pedido realizado",
+        "compra aprovada", "compra confirmada", "compra realizada",
+        "pagamento aprovado", "pagamento confirmado", "pagamento recebido",
+        "pix recebido", "transacao aprovada", "comprovante de pagamento",
+        "nota fiscal", "nf-e", "boleto pago", "checkout",
+        "order", "new order", "payment received", "purchase"
+      ]
+    },
+    "pergunta": {
+      "rotulo": "Pergunta de cliente",
+      "palavras": [
+        "duvida", "pergunta", "gostaria de saber", "queria saber",
+        "como faco", "como funciona", "quanto custa", "qual o valor",
+        "qual o preco", "qual o prazo", "tem disponivel", "tem em estoque",
+        "voces entregam", "voces tem", "poderia me informar", "pode me informar",
+        "poderiam me", "orcamento", "informacao", "informacoes",
+        "e possivel", "consigo", "aceita", "parcela"
+      ],
+      "ponto_interrogacao": true
+    },
+    "mensagem": {
+      "rotulo": "Mensagem de cliente",
+      "palavras": [
+        "obrigado", "obrigada", "agradeco", "parabens", "elogio",
+        "reclamacao", "problema", "nao recebi", "atraso", "troca",
+        "devolucao", "cancelar", "cancelamento", "feedback", "recebi o produto",
+        "meu pedido", "minha compra", "minha encomenda", "rastreio", "defeito"
+      ]
+    },
+    "outros": {
+      "rotulo": "Outros (newsletters e avisos)",
+      "palavras": [
+        "descadastrar", "cancelar inscricao", "unsubscribe", "newsletter",
+        "nao responda", "no-reply", "noreply", "alerta de seguranca",
+        "verifique seu e-mail", "codigo de verificacao"
+      ]
+    }
+  },
+  "padrao": "mensagem",
+  "_desempate": "Em caso de empate vence a categoria que aparece primeiro nesta lista.",
+  "desempate": ["mensagem", "pergunta", "venda", "outros"],
+  "_saudacoes": "Frases com '?' que são só cumprimento e não contam como pergunta.",
+  "saudacoes": ["tudo bem?", "tudo bom?", "como vai?", "como voce esta?", "tudo certo?"]
+}
