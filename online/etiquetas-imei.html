@@ -1,0 +1,418 @@
+<title>Etiquetas IMEI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: uma coluna no celular (foto → conferir → PDF), duas no computador; a prévia mostra a fileira do rolo em escala. */
+:root{
+  --bg:#eef1f4; --surface:#ffffff; --ink:#15202b; --muted:#5d6b78; --line:#d5dbe1;
+  --accent:#0b6bcb; --accent-ink:#ffffff; --ok:#11804a; --bad:#c0362c; --warn:#a85d00;
+  --roll:#dfe4e9; --label:#ffffff; --label-ink:#000000;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f161d; --surface:#17212b; --ink:#e4eaf0; --muted:#93a1ae; --line:#2b3947;
+  --accent:#4ea1f0; --accent-ink:#06121e; --ok:#4cc38a; --bad:#f07167; --warn:#f0b44c; --roll:#22303d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f161d; --surface:#17212b; --ink:#e4eaf0; --muted:#93a1ae; --line:#2b3947;
+  --accent:#4ea1f0; --accent-ink:#06121e; --ok:#4cc38a; --bad:#f07167; --warn:#f0b44c; --roll:#22303d; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 var(--sans)}
+.app{max-width:980px;margin:0 auto;padding-block:16px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px}
+header h1{font-size:22px;margin:0;text-wrap:balance}
+header p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+h2{font-size:16px;margin:0 0 12px}
+.passo{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--accent);margin-right:6px}
+button{font:inherit;min-height:44px;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.principal{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+button.grande{width:100%;min-height:56px;font-size:18px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.linha{display:flex;flex-wrap:wrap;gap:10px}
+.linha>*{flex:1 1 auto}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input,select{font:inherit;width:100%;min-height:44px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+input.imei{font-family:var(--mono);font-size:20px;letter-spacing:.05em;font-variant-numeric:tabular-nums}
+input.valido{border-color:var(--ok)} input.invalido{border-color:var(--bad)}
+.campo{margin-bottom:12px}
+.dica{font-size:13px;min-height:18px;margin-top:3px}
+.dica.ok{color:var(--ok)} .dica.bad{color:var(--bad)} .dica.warn{color:var(--warn)}
+.status{font-size:14px;color:var(--muted);margin-top:10px}
+.barra{height:4px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:6px}
+.barra div{height:100%;width:0;background:var(--accent);transition:width .15s}
+.foto{display:flex;gap:12px;align-items:flex-start;margin-top:12px}
+.foto img{width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{min-height:34px;padding:4px 10px;border-radius:999px;font-family:var(--mono);font-size:13px;background:var(--bg)}
+.previa{overflow-x:auto;background:var(--roll);border-radius:10px;padding:12px;display:grid;gap:8px}
+.fileira{display:flex}
+.etq{background:var(--label);color:var(--label-ink);border-radius:3px;flex:none;display:flex;flex-direction:column;align-items:center;gap:.25em;padding:.6em .5em;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.etq.vazia{background:transparent;box-shadow:none;outline:1px dashed var(--muted)}
+.etq svg{flex:1 1 0;min-height:0;display:block}
+.etq .t{line-height:1;white-space:nowrap;margin-bottom:.35em}
+.etq .d{line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:.95em}
+.legenda{font-size:13px;color:var(--muted);margin-top:8px}
+.lista{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.lista li{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.lista .nums{font-family:var(--mono);font-size:14px;min-width:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.lista .desc{font-family:var(--sans);font-size:13px;color:var(--muted)}
+.lista input{width:64px;min-height:36px;padding:4px 8px}
+.lista button{min-height:36px;padding:4px 10px}
+.vazio{color:var(--muted);font-size:14px;text-align:center;padding:10px}
+.ajustes{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:12px}
+details summary{cursor:pointer;font-weight:600}
+.como{font-size:14px;color:var(--muted);margin:0;padding-left:20px;display:grid;gap:4px}
+.aviso{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--surface);padding:12px 16px;border-radius:12px;max-width:calc(100% - 32px);z-index:5;font-size:15px}
+.aviso.erro{background:var(--bad);color:#fff}
+.check{display:flex;gap:8px;align-items:center;font-size:15px;color:var(--ink);margin:12px 0 0}
+.check input{width:auto;min-height:auto}
+@media (prefers-reduced-motion: reduce){.barra div{transition:none}}
+</style>
+
+<div class="app">
+  <header>
+    <h1>Etiquetas IMEI</h1>
+    <p>Foto da caixa → IMEI 1 e IMEI 2 → PDF de etiquetas <span id="tamanho">40×25 mm, 2 colunas</span></p>
+  </header>
+
+  <div class="cols">
+    <section class="card">
+      <h2><span class="passo">1</span>Ler os IMEIs</h2>
+      <input id="arquivo" type="file" accept="image/*" capture="environment" hidden>
+      <input id="galeria" type="file" accept="image/*" hidden>
+      <button id="btnFoto" class="principal grande">Tirar foto da caixa</button>
+      <div class="linha" style="margin-top:10px"><button id="btnGaleria">Escolher foto da galeria</button></div>
+      <div id="status" class="status">Fotografe a etiqueta da caixa onde ficam os códigos de barras dos IMEIs. Também dá para digitar.</div>
+      <div class="barra" id="barra" hidden><div></div></div>
+      <div class="foto" id="fotoBox" hidden>
+        <img id="miniatura" alt="Foto lida">
+        <div><div class="legenda" id="achadosTxt" style="margin:0"></div><div class="chips" id="chips"></div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="passo">2</span>Conferir</h2>
+      <div class="campo"><label for="imei1">IMEI 1</label>
+        <input id="imei1" class="imei" inputmode="numeric" autocomplete="off" maxlength="17" placeholder="15 dígitos">
+        <div class="dica" id="dica1"></div></div>
+      <div class="campo"><label for="imei2">IMEI 2</label>
+        <input id="imei2" class="imei" inputmode="numeric" autocomplete="off" maxlength="17" placeholder="15 dígitos (opcional)">
+        <div class="dica" id="dica2"></div></div>
+      <div class="linha campo">
+        <div style="flex:3 1 170px"><label for="descricao">Descrição (opcional, sai no topo)</label><input id="descricao" maxlength="60" placeholder="Ex.: Galaxy A15 128GB"></div>
+        <div style="flex:1 1 70px"><label for="copias">Cópias</label><input id="copias" type="number" min="1" max="500" value="1" inputmode="numeric"></div>
+      </div>
+      <div class="linha">
+        <button id="btnInverter">⇅ Inverter</button>
+        <button id="btnLimpar">Limpar</button>
+      </div>
+      <div class="linha" style="margin-top:10px">
+        <button id="btnPdf" class="principal">Gerar PDF da etiqueta</button>
+        <button id="btnAdd">＋ Adicionar à lista</button>
+      </div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Prévia no rolo</h2>
+    <div class="previa" id="previa"></div>
+    <div class="legenda" id="previaTxt"></div>
+  </section>
+
+  <section class="card">
+    <div class="linha" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h2 style="margin:0;flex:0 1 auto">Lista para imprimir <span id="listaQtd" class="legenda"></span></h2>
+      <div class="linha" style="flex:0 1 auto">
+        <button id="btnPdfLista" class="principal" disabled>PDF da lista</button>
+        <button id="btnEsvaziar" disabled>Esvaziar</button>
+      </div>
+    </div>
+    <div id="confirmaEsvaziar" class="linha" hidden style="margin-bottom:10px;align-items:center">
+      <span style="flex:1 1 200px;font-size:14px">Tirar todos os celulares da lista?</span>
+      <button id="btnSimEsvaziar">Sim, esvaziar</button><button id="btnNaoEsvaziar">Cancelar</button>
+    </div>
+    <ul class="lista" id="lista"></ul>
+  </section>
+
+  <section class="card">
+    <h2>Como imprimir o PDF</h2>
+    <ol class="como">
+      <li>Toque em <b>Gerar PDF</b> e salve ou compartilhe o arquivo.</li>
+      <li>Abra o PDF e escolha <b>Imprimir</b>. No celular, a Zebra precisa do serviço de impressão da Zebra instalado; ou mande o PDF para o computador ligado à Zebra.</li>
+      <li>Na impressão, use <b>tamanho real / 100%</b>, sem margens. Cada página do PDF é uma fileira do rolo (<span id="papelTxt">82×25 mm</span>).</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>Ajustes da etiqueta</summary>
+      <div class="ajustes" id="ajustes">
+        <div style="grid-column:1/-1"><label for="layout">Layout</label>
+          <select id="layout"><option value="separado">IMEI 1 na esquerda, IMEI 2 na direita</option><option value="par">IMEI 1 e IMEI 2 na mesma etiqueta</option></select></div>
+        <div><label for="largura_mm">Largura (mm)</label><input id="largura_mm" type="number" step="0.5" min="10" max="120"></div>
+        <div><label for="altura_mm">Altura (mm)</label><input id="altura_mm" type="number" step="0.5" min="10" max="120"></div>
+        <div><label for="colunas">Colunas</label><input id="colunas" type="number" min="1" max="4"></div>
+        <div><label for="espaco_colunas_mm">Espaço entre colunas (mm)</label><input id="espaco_colunas_mm" type="number" step="0.5" min="0" max="20"></div>
+        <div><label for="margem_esquerda_mm">Margem esquerda (mm)</label><input id="margem_esquerda_mm" type="number" step="0.5" min="0" max="50"></div>
+        <div><label for="ajuste_vertical_mm">Ajuste vertical (mm)</label><input id="ajuste_vertical_mm" type="number" step="0.5" min="-10" max="10"></div>
+      </div>
+      <button id="btnTeste" style="margin-top:12px">PDF de teste</button>
+    </details>
+  </section>
+</div>
+<div id="aviso" class="aviso" hidden></div>
+
+<script>window.LEITOR_BASE = "vendor/"; window.LEITOR_SEM_OCR = true; // aqui só códigos de barras</script>
+<script src="vendor/zxing-wasm-reader.js"></script>
+<script src="vendor/JsBarcode.all.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="leitor.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const digitos = (s) => String(s || "").replace(/\D/g, "");
+  const ler = (k, p) => { try { const v = localStorage.getItem(k); return v == null ? p : JSON.parse(v); } catch (_) { return p; } };
+  const gravar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} };
+  const PADRAO = { layout: "separado", largura_mm: 40, altura_mm: 25, colunas: 2, espaco_colunas_mm: 2, margem_esquerda_mm: 0, ajuste_vertical_mm: 0 };
+  const cfg = Object.assign({}, PADRAO, ler("etq-imei-cfg", {}));
+  let lista = ler("etq-imei-lista", []).filter((f) => f && (f.imei1 || f.imei2));
+
+  let timer;
+  function aviso(msg, erro) {
+    const a = $("aviso"); a.textContent = msg; a.className = "aviso" + (erro ? " erro" : ""); a.hidden = false;
+    clearTimeout(timer); timer = setTimeout(() => (a.hidden = true), erro ? 7000 : 3500);
+  }
+
+  // ---------- IMEIs ----------
+  function validar(n) {
+    const c = $("imei" + n), d = $("dica" + n), v = digitos(c.value);
+    c.classList.remove("valido", "invalido"); d.className = "dica"; d.textContent = "";
+    if (!v) return n === 2;
+    if (v.length !== 15) { c.classList.add("invalido"); d.classList.add("bad"); d.textContent = `${v.length} dígitos. O IMEI tem 15.`; return false; }
+    if (!Leitor.luhn(v)) { c.classList.add("invalido"); d.classList.add("warn"); d.textContent = "Dígito verificador não confere. Confira o número."; return true; }
+    c.classList.add("valido"); d.classList.add("ok"); d.textContent = "IMEI válido ✓"; return true;
+  }
+  const itemAtual = () => ({ imei1: digitos($("imei1").value), imei2: digitos($("imei2").value), descricao: $("descricao").value.trim(), copias: Math.max(1, parseInt($("copias").value, 10) || 1) });
+  function conferir(it) {
+    const a = validar(1), b = validar(2);
+    if (!it.imei1) { aviso("Preencha o IMEI 1.", true); return false; }
+    if (!a || !b) { aviso("Corrija o IMEI marcado em vermelho.", true); return false; }
+    return true;
+  }
+  function limpar() { $("imei1").value = ""; $("imei2").value = ""; $("copias").value = "1"; validar(1); validar(2); $("fotoBox").hidden = true; previa(); }
+
+  // ---------- foto ----------
+  async function processarFoto(arq) {
+    if (!arq) return;
+    const st = $("status"), barra = $("barra"), prog = barra.firstElementChild;
+    $("btnFoto").disabled = $("btnGaleria").disabled = true; barra.hidden = false; prog.style.width = "0";
+    try {
+      const r = await Leitor.lerFoto(arq, (t, p) => { st.textContent = t; prog.style.width = Math.round(p * 100) + "%"; });
+      $("miniatura").src = r.miniatura; $("fotoBox").hidden = false;
+      const chips = $("chips"); chips.innerHTML = "";
+      if (!r.imeis.length) {
+        $("achadosTxt").textContent = "Nenhum IMEI encontrado.";
+        st.textContent = "Não achei IMEI nesta foto. Chegue mais perto, deixe a etiqueta reta e sem reflexo, ou digite os números.";
+        return;
+      }
+      $("imei1").value = r.imeis[0] || ""; $("imei2").value = r.imeis[1] || ""; validar(1); validar(2); previa();
+      $("achadosTxt").textContent = `${r.imeis.length} IMEI(s) por ${r.metodo}` + (r.imeis.length > 2 ? ". Toque no certo:" : ":");
+      r.imeis.forEach((n) => {
+        const b = document.createElement("button"); b.type = "button"; b.className = "chip"; b.textContent = n;
+        b.onclick = () => { const alvo = digitos($("imei1").value) === n ? 2 : 1; $("imei" + alvo).value = n; validar(alvo); previa(); };
+        chips.appendChild(b);
+      });
+      st.textContent = r.imeis.length === 1 ? "Achei só 1 IMEI. Tire outra foto mais de perto ou digite o segundo." : "Pronto. Confira os números.";
+    } catch (e) { st.textContent = e.message || String(e); }
+    finally { barra.hidden = true; $("btnFoto").disabled = $("btnGaleria").disabled = false; }
+  }
+
+  // ---------- etiquetas ----------
+  function montar(itens) {
+    const out = [];
+    for (const it of itens) {
+      let a = it.imei1, b = it.imei2; if (!a && b) { a = b; b = ""; } if (!a) continue;
+      const g = cfg.layout === "separado"
+        ? [{ linhas: [["IMEI 1", a]], d: it.descricao }].concat(b ? [{ linhas: [["IMEI 2", b]], d: it.descricao }] : [])
+        : [{ linhas: b ? [["IMEI 1", a], ["IMEI 2", b]] : [["IMEI", a]], d: it.descricao }];
+      for (let c = 0; c < (it.copias || 1); c++) out.push(...g);
+    }
+    return out;
+  }
+  const larguraPagina = () => cfg.margem_esquerda_mm + cfg.colunas * cfg.largura_mm + (cfg.colunas - 1) * cfg.espaco_colunas_mm;
+
+  // Mesmas proporções da versão ZPL: margem 6%, descrição 8,5%, texto 9%, espaço entre códigos 6% da altura.
+  function medidas(e, W, H) {
+    const topo = H * 0.06, margem = Math.max(0.5, W * 0.03);
+    let y = topo; const partes = [];
+    if (e.d) { const h = Math.max(1.5, H * 0.085); partes.push({ tipo: "texto", x: margem, y, w: W - 2 * margem, h, txt: e.d }); y += h + H * 0.03; }
+    const n = e.linhas.length, hTxt = Math.max(1.5, H * 0.09), folga = H * 0.015, entre = H * 0.06;
+    const hBarra = Math.max(2.5, (H - y - topo - entre * (n - 1)) / n - hTxt - folga);
+    for (const [rot, num] of e.linhas) {
+      partes.push({ tipo: "barra", y, h: hBarra, num });
+      y += hBarra + folga;
+      partes.push({ tipo: "texto", x: margem, y, w: W - 2 * margem, h: hTxt, txt: `${rot}: ${num}` });
+      y += hTxt + entre;
+    }
+    return partes;
+  }
+  function modulosCode128(num) { const o = {}; JsBarcode(o, num, { format: "CODE128" }); return o.encodings.map((e) => e.data).join(""); }
+
+  function gerarPdf(itens) {
+    const etqs = montar(itens);
+    if (!etqs.length) throw new Error("Nenhuma etiqueta para gerar.");
+    const W = cfg.largura_mm, H = cfg.altura_mm, PW = larguraPagina();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: PW >= H ? "landscape" : "portrait", unit: "mm", format: [PW, H], compress: true });
+    doc.setFont("helvetica", "normal");
+    for (let i = 0; i < etqs.length; i += cfg.colunas) {
+      if (i) doc.addPage([PW, H], PW >= H ? "landscape" : "portrait");
+      for (let c = 0; c < cfg.colunas && etqs[i + c]; c++) {
+        const x0 = cfg.margem_esquerda_mm + c * (W + cfg.espaco_colunas_mm), y0 = cfg.ajuste_vertical_mm;
+        for (const p of medidas(etqs[i + c], W, H)) {
+          if (p.tipo === "texto") {
+            let pt = (p.h / 0.3528) * 1.05; doc.setFontSize(pt);
+            while (doc.getTextWidth(p.txt) > p.w && pt > 4) { pt -= 0.25; doc.setFontSize(pt); }
+            doc.text(p.txt, x0 + p.x + p.w / 2, y0 + p.y + p.h, { align: "center", baseline: "alphabetic" });
+          } else {
+            const bits = modulosCode128(p.num);
+            const mod = Math.min(0.25, (W * 0.92) / bits.length); // 0,25 mm = 2 pontos a 203 dpi / 3 a 300 dpi
+            let x = x0 + (W - bits.length * mod) / 2;
+            for (let k = 0; k < bits.length;) {
+              let j = k; while (j < bits.length && bits[j] === bits[k]) j++;
+              if (bits[k] === "1") doc.rect(x + k * mod, y0 + p.y, (j - k) * mod, p.h, "F");
+              k = j;
+            }
+          }
+        }
+      }
+    }
+    return { blob: doc.output("blob"), qtd: etqs.length, paginas: Math.ceil(etqs.length / cfg.colunas) };
+  }
+
+  async function salvarPdf(itens, nome) {
+    let r;
+    try { r = gerarPdf(itens); } catch (e) { aviso(e.message, true); return false; }
+    const dl = window.claude ? await window.claude.use("downloads") : undefined;
+    if (dl === null) { aviso("Este app não deixa salvar arquivos. Abra o link no navegador do celular ou no computador.", true); return false; }
+    if (dl) {
+      try { await dl.save({ filename: nome, data: r.blob }); aviso(`PDF com ${r.qtd} etiqueta(s) pronto.`); return true; }
+      catch (e) {
+        const msg = { declined: "Download cancelado.", host_unavailable: "Este app não salva arquivos. Abra o link no navegador do celular ou no computador.", rate_limited: "Aguarde um instante e tente de novo." }[e && e.code];
+        aviso(msg || "Não foi possível salvar o PDF aqui. Abra o link no navegador.", true); return false;
+      }
+    }
+    const a = document.createElement("a"); a.href = URL.createObjectURL(r.blob); a.download = nome; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    aviso(`PDF com ${r.qtd} etiqueta(s) pronto.`); return true;
+  }
+  const nomeArquivo = (it) => "etiquetas-imei" + (it && it.imei1 ? "-" + it.imei1.slice(-4) : "") + ".pdf";
+
+  // ---------- lista ----------
+  function salvarLista() { gravar("etq-imei-lista", lista); desenharLista(); previa(); }
+  function desenharLista() {
+    const ul = $("lista"); ul.innerHTML = "";
+    const total = montar(lista).length;
+    $("listaQtd").textContent = lista.length ? `(${lista.length} celular(es), ${total} etiqueta(s))` : "";
+    $("btnPdfLista").disabled = $("btnEsvaziar").disabled = !lista.length;
+    if (!lista.length) { ul.innerHTML = '<li class="vazio">Nenhum celular na lista. Use “Adicionar à lista” para gerar um PDF com vários de uma vez.</li>'; return; }
+    lista.forEach((f, i) => {
+      const li = document.createElement("li");
+      const nums = document.createElement("div"); nums.className = "nums";
+      for (const t of [`${i + 1}. ${f.imei1 || "—"}`, f.imei2 || "—"]) { const d = document.createElement("div"); d.textContent = t; nums.appendChild(d); }
+      if (f.descricao) { const d = document.createElement("div"); d.className = "desc"; d.textContent = f.descricao; nums.appendChild(d); }
+      const ac = document.createElement("div"); ac.className = "linha"; ac.style.flex = "0 0 auto";
+      const q = document.createElement("input"); q.type = "number"; q.min = 1; q.value = f.copias; q.setAttribute("aria-label", "Cópias");
+      q.onchange = () => { f.copias = Math.max(1, parseInt(q.value, 10) || 1); salvarLista(); };
+      const x = document.createElement("button"); x.textContent = "✕"; x.setAttribute("aria-label", "Tirar da lista");
+      x.onclick = () => { lista.splice(i, 1); salvarLista(); };
+      ac.append(q, x); li.append(nums, ac); ul.appendChild(li);
+    });
+  }
+
+  // ---------- prévia ----------
+  function previa() {
+    const at = itemAtual(), usarAtual = at.imei1 || at.imei2;
+    const exemplo = { imei1: "490154203237518", imei2: "356938035643809", descricao: at.descricao, copias: 1 };
+    const etqs = montar(usarAtual ? [at] : lista.length ? lista : [exemplo]);
+    const box = $("previa"); box.innerHTML = "";
+    const esc = Math.max(2.5, Math.min(5, (box.clientWidth - 24) / larguraPagina()));
+    const W = cfg.largura_mm * esc, H = cfg.altura_mm * esc, fileiras = Math.min(3, Math.ceil(etqs.length / cfg.colunas));
+    for (let r = 0; r < fileiras; r++) {
+      const f = document.createElement("div"); f.className = "fileira";
+      f.style.gap = cfg.espaco_colunas_mm * esc + "px"; f.style.paddingLeft = cfg.margem_esquerda_mm * esc + "px";
+      for (let c = 0; c < cfg.colunas; c++) {
+        const e = etqs[r * cfg.colunas + c], div = document.createElement("div");
+        div.className = "etq" + (e ? "" : " vazia"); div.style.width = W + "px"; div.style.height = H + "px"; div.style.fontSize = esc * 2 + "px";
+        if (e) {
+          if (e.d) { const d = document.createElement("div"); d.className = "d"; d.textContent = e.d; div.appendChild(d); }
+          for (const [rot, num] of e.linhas) {
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            JsBarcode(svg, num, { format: "CODE128", width: 2, height: 50, displayValue: false, margin: 0 });
+            svg.removeAttribute("width"); svg.removeAttribute("height"); svg.setAttribute("preserveAspectRatio", "none");
+            svg.style.width = Math.round(W * 0.84) + "px";
+            const t = document.createElement("div"); t.className = "t"; t.textContent = `${rot}: ${num}`;
+            div.append(svg, t);
+          }
+        }
+        f.appendChild(div);
+      }
+      box.appendChild(f);
+    }
+    const extra = Math.ceil(etqs.length / cfg.colunas) - fileiras;
+    $("previaTxt").textContent = (usarAtual ? "Celular na tela" : lista.length ? "Lista" : "Exemplo") + ` · ${cfg.largura_mm}×${cfg.altura_mm} mm, ${cfg.colunas} coluna(s)` + (extra > 0 ? ` · +${extra} fileira(s)` : "");
+    $("tamanho").textContent = `${cfg.largura_mm}×${cfg.altura_mm} mm, ${cfg.colunas} coluna(s)`;
+    $("papelTxt").textContent = `${+larguraPagina().toFixed(1)}×${cfg.altura_mm} mm`;
+  }
+
+  // ---------- ajustes ----------
+  const LIM = { largura_mm: [10, 120], altura_mm: [10, 120], colunas: [1, 4], espaco_colunas_mm: [0, 20], margem_esquerda_mm: [0, 50], ajuste_vertical_mm: [-10, 10] };
+  for (const k of Object.keys(PADRAO)) {
+    const el = $(k); el.value = cfg[k];
+    el.addEventListener("change", () => {
+      if (k === "layout") cfg.layout = el.value === "par" ? "par" : "separado";
+      else {
+        let v = parseFloat(String(el.value).replace(",", ".")); if (!isFinite(v)) v = PADRAO[k];
+        v = Math.max(LIM[k][0], Math.min(LIM[k][1], v)); if (k === "colunas") v = Math.round(v);
+        cfg[k] = v; el.value = v;
+      }
+      gravar("etq-imei-cfg", cfg); desenharLista(); previa();
+    });
+  }
+
+  // ---------- eventos ----------
+  $("btnFoto").onclick = () => $("arquivo").click();
+  $("btnGaleria").onclick = () => $("galeria").click();
+  for (const id of ["arquivo", "galeria"]) $(id).onchange = (e) => { processarFoto(e.target.files[0]); e.target.value = ""; };
+  [1, 2].forEach((n) => {
+    const c = $("imei" + n);
+    c.addEventListener("input", () => { validar(n); previa(); if (n === 1 && digitos(c.value).length === 15 && document.activeElement === c) $("imei2").focus(); });
+    c.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); if (n === 1) $("imei2").focus(); else $("btnPdf").click(); } });
+  });
+  $("descricao").addEventListener("input", previa);
+  $("copias").addEventListener("input", previa);
+  $("btnInverter").onclick = () => { const a = $("imei1").value; $("imei1").value = $("imei2").value; $("imei2").value = a; validar(1); validar(2); previa(); };
+  $("btnLimpar").onclick = limpar;
+  $("btnPdf").onclick = async () => { const it = itemAtual(); if (conferir(it) && await salvarPdf([it], nomeArquivo(it))) { limpar(); $("status").textContent = "PDF gerado. Pode fotografar a próxima caixa."; } };
+  $("btnAdd").onclick = () => {
+    const it = itemAtual(); if (!conferir(it)) return;
+    const repetido = lista.some((f) => f.imei1 === it.imei1 || f.imei2 === it.imei1);
+    lista.push(it); salvarLista(); limpar();
+    aviso(repetido ? "Adicionado. Atenção: esse IMEI já estava na lista." : "Adicionado à lista.");
+    $("status").textContent = "Pode fotografar a próxima caixa.";
+  };
+  $("btnPdfLista").onclick = async () => { if (await salvarPdf(lista, "etiquetas-imei-lista.pdf")) aviso("PDF da lista pronto. Esvazie a lista depois de imprimir."); };
+  $("btnEsvaziar").onclick = () => { $("confirmaEsvaziar").hidden = false; };
+  $("btnNaoEsvaziar").onclick = () => { $("confirmaEsvaziar").hidden = true; };
+  $("btnSimEsvaziar").onclick = () => { lista = []; salvarLista(); $("confirmaEsvaziar").hidden = true; };
+  $("btnTeste").onclick = () => salvarPdf([{ imei1: "490154203237518", imei2: "356938035643809", descricao: "TESTE", copias: cfg.layout === "par" ? cfg.colunas : 1 }], "etiqueta-teste.pdf");
+  window.addEventListener("resize", previa);
+
+  desenharLista(); previa();
+})();
+</script>

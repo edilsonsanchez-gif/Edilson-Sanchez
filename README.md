@@ -140,3 +140,9 @@ mais de perto ou digite o segundo. Se a foto trouxer mais de dois números, toqu
 ```bash
 python -m unittest discover -s tests
 ```
+
+## Versão para o celular (sem computador)
+
+`online/etiquetas-imei.html` é a versão publicada como página privada no claude.ai: abre pelo link no celular,
+lê os códigos de barras da foto e gera um **PDF** com as etiquetas (cada página = uma fileira de 82×25 mm).
+Imprima o PDF em tamanho real (100%), sem margens. Essa versão lê só códigos de barras (não tem leitura de texto/OCR).

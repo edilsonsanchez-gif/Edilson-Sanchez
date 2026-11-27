@@ -1,7 +1,8 @@
 /* Leitura dos IMEIs a partir da foto da caixa: códigos de barras (ZXing) e, se faltar algum, texto (OCR). */
 (function () {
   "use strict";
-  const BASE = new URL("static/vendor/", document.baseURI).href;
+  // Pasta das bibliotecas: "static/vendor/" no programa do computador; a página do celular define window.LEITOR_BASE.
+  const BASE = new URL(window.LEITOR_BASE || "static/vendor/", document.baseURI).href;
 
   function luhn(num) {
     let soma = 0;
@@ -89,13 +90,30 @@
     });
   }
 
+  /** Leitor de códigos do próprio aparelho (Chrome no Android), usado se o outro não achar nada. */
+  async function lerNativo(canvas) {
+    if (!("BarcodeDetector" in window)) return [];
+    try {
+      const det = new window.BarcodeDetector();
+      const lado = Math.max(canvas.width, canvas.height);
+      return (await det.detect(canvas)).map((c) => ({
+        texto: c.rawValue,
+        y: (c.boundingBox.y + c.boundingBox.height / 2) / lado,
+        x: (c.boundingBox.x + c.boundingBox.width / 2) / lado,
+      }));
+    } catch (_) { return []; }
+  }
+
   /** Procura os códigos na foto em alguns tamanhos (código pequeno precisa da foto grande, e vice-versa). */
   async function lerCodigos(img, progresso) {
     const achados = new Map(); // imei -> posição para ordenar (de cima para baixo)
     const tamanhos = [2000, 3200, 1000];
     for (let i = 0; i < tamanhos.length; i++) {
       if (i > 0 && Math.max(img.naturalWidth, img.naturalHeight) <= tamanhos[i - 1] && tamanhos[i] > tamanhos[i - 1]) continue;
-      const lidos = await lerImagem(paraCanvas(img, tamanhos[i]));
+      const canvas = paraCanvas(img, tamanhos[i]);
+      let lidos = [];
+      try { lidos = await lerImagem(canvas); } catch (e) { console.warn("leitor de códigos indisponível", e); }
+      if (!lidos.length) lidos = await lerNativo(canvas);
       for (const r of lidos) {
         encontrar(r.texto).forEach((n, k) => {
           if (!achados.has(n)) achados.set(n, { y: r.y, x: r.x + k });
@@ -150,7 +168,7 @@
     etapa("Procurando os códigos de barras…", 0);
     let imeis = await lerCodigos(img, (p) => etapa("Procurando os códigos de barras…", p));
     let metodo = "código de barras";
-    if (imeis.length < 2) {
+    if (imeis.length < 2 && !window.LEITOR_SEM_OCR) {
       etapa("Lendo os números impressos (OCR)…", 0);
       try {
         const doTexto = await lerTexto(paraCanvas(img, 1800), (p) => etapa("Lendo os números impressos (OCR)…", p));
