@@ -44,6 +44,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.c
 .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--bg)}
 .seg button{border:0;border-radius:0;background:transparent;color:var(--text2);font-size:13px;padding:7px 12px}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--text);font-weight:600}
+#conta{font:inherit;font-size:13px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);max-width:100%}
 #busca{flex:1 1 220px;min-width:0;padding:7px 10px;border:1px solid var(--border);border-radius:8px;
   background:var(--surface);color:var(--text);font:inherit}
 .aviso{background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:10px;padding:12px 14px;
@@ -118,6 +119,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.c
       <button type="button" data-periodo="14" aria-pressed="false">14 dias</button>
       <button type="button" data-periodo="30" aria-pressed="false">30 dias</button>
     </div>
+    <select id="conta" aria-label="Conta de e-mail" hidden></select>
     <input id="busca" type="search" placeholder="Buscar por assunto, remetente ou texto" aria-label="Buscar">
   </div>
 
@@ -203,7 +205,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.c
 
   // ---------- Estado ----------
   var estado = {
-    periodo: 7, filtro: null, busca: "", aberto: null, limite: 60,
+    periodo: 7, filtro: null, busca: "", conta: "", aberto: null, limite: 60,
     itens: new Map(), correcoes: new Map(), carregando: false, feitos: 0, total: 0,
     ultima: null, geracao: 0
   };
@@ -346,9 +348,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.c
         var assunto = msg.subject || m.subject || "(sem assunto)";
         var trecho = msg.snippet || m.snippet || "";
         var labels = msg.labelIds || m.labelIds || [];
+        var para = (msg.toRecipients || m.toRecipients || [])[0];
+        var conta = typeof para === "string" ? para.trim().toLowerCase() : "";
         estado.itens.set(x.t.id, {
           threadId: x.t.id, msgId: msg.id || m.id, assunto: assunto, remetente: nome, email: email,
-          data: data, trecho: trecho, count: x.t.messageCount || 1,
+          data: data, trecho: trecho, count: x.t.messageCount || 1, conta: conta,
           url: linkSeguro(msg.viewUrl) || linkSeguro(x.t.viewUrl) || linkSeguro(m.viewUrl) ||
                "https://mail.google.com/mail/#all/" + encodeURIComponent(x.t.id),
           auto: classificar(assunto, trecho, email, labels)
@@ -413,6 +417,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.c
     var b = normalizar(estado.busca);
     var out = [];
     estado.itens.forEach(function (it) {
+      if (estado.conta && it.conta !== estado.conta) return;
       if (b && normalizar(it.assunto + " " + it.remetente + " " + it.email + " " + it.trecho).indexOf(b) < 0) return;
       out.push(it);
     });
@@ -431,8 +436,26 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.c
     pr.firstElementChild.style.width = Math.round(frac * 100) + "%";
   }
 
+  function renderContas() {
+    var cont = new Map();
+    estado.itens.forEach(function (it) { if (it.conta) cont.set(it.conta, (cont.get(it.conta) || 0) + 1); });
+    var lista = Array.from(cont.entries()).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 12);
+    var sel = $("conta");
+    sel.hidden = lista.length < 2 && !estado.conta;
+    if (sel.hidden) return;
+    var chave = lista.map(function (x) { return x[0] + x[1]; }).join("|") + "#" + estado.conta;
+    if (sel.getAttribute("data-chave") === chave) return;
+    sel.setAttribute("data-chave", chave);
+    sel.textContent = "";
+    sel.appendChild(el("option", { value: "", text: "Todas as contas" }));
+    lista.forEach(function (x) { sel.appendChild(el("option", { value: x[0], text: x[0] + " (" + x[1] + ")" })); });
+    if (estado.conta && !cont.has(estado.conta)) sel.appendChild(el("option", { value: estado.conta, text: estado.conta }));
+    sel.value = estado.conta;
+  }
+
   function render() {
     renderStatus();
+    renderContas();
     var base = visiveis();
     var cont = { venda: 0, pergunta: 0, mensagem: 0, outros: 0 };
     base.forEach(function (it) { cont[catDe(it)]++; });
@@ -592,6 +615,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.c
     tBusca = setTimeout(function () { estado.busca = e.target.value; estado.limite = 60; render(); }, 150);
   });
   $("atualizar").addEventListener("click", function () { carregar(true); });
+  $("conta").addEventListener("change", function (e) {
+    estado.conta = e.target.value; estado.limite = 60; estado.aberto = null;
+    try { localStorage.setItem("painel-conta", estado.conta); } catch (er) {}
+    render();
+  });
+  try { estado.conta = localStorage.getItem("painel-conta") || ""; } catch (er) {}
   var ultLarg = 0;
   window.addEventListener("resize", function () { var w = $("grafico").clientWidth; if (Math.abs(w - ultLarg) > 8) { ultLarg = w; agendar(); } });
   $("mais").addEventListener("click", function () { estado.limite += 60; render(); });
