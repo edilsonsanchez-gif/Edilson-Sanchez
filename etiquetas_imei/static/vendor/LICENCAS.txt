@@ -1,0 +1,6 @@
+Bibliotecas de terceiros incluídas (sem alterações):
+- zxing-wasm-reader.js, zxing_reader.wasm   zxing-wasm 3.1.5 (zxing-cpp)  MIT / Apache-2.0  https://github.com/Sec-ant/zxing-wasm
+- JsBarcode.all.min.js    jsbarcode 3.11.6             MIT         https://github.com/lindell/JsBarcode
+- tesseract/tesseract.min.js, worker.min.js  tesseract.js 5.1.1  Apache-2.0  https://github.com/naptha/tesseract.js
+- tesseract/tesseract-core-lstm.wasm.js      tesseract.js-core 5.1.1  Apache-2.0
+- tesseract/eng.traineddata.gz               tessdata (4.0.0_best_int) Apache-2.0  https://github.com/tesseract-ocr/tessdata

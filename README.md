@@ -70,3 +70,56 @@ python -m unittest discover -s tests
 `online/painel-emails.html` é a versão publicada como página privada no claude.ai. Ela lê o Gmail pelo
 conector do Gmail da conta Claude de quem abre a página (somente leitura), classifica com as mesmas regras
 e guarda as correções de tipo só para quem as fez. Não precisa de servidor nem de computador ligado.
+
+---
+
+# Etiquetas IMEI (Zebra 40×25 mm, 2 colunas)
+
+Programa para **fotografar a etiqueta da caixa do celular**, ler o **IMEI 1 e o IMEI 2** e imprimir etiquetas
+com código de barras numa **impressora Zebra**, no rolo de **40×25 mm com 2 colunas**.
+
+- Lê os **códigos de barras** da foto; se faltar algum, lê os **números impressos (OCR)**.
+- Confere cada IMEI pelo dígito verificador (Luhn) antes de imprimir.
+- Também aceita digitar ou usar **leitor de código de barras USB** (ao completar o IMEI 1, pula para o IMEI 2).
+- **Imprimir agora** (uma caixa) ou montar uma **fila** e imprimir tudo de uma vez, com cópias.
+- Prévia da etiqueta na tela; botão para **baixar o ZPL**.
+- Usa só Python 3.10+ (sem instalar pacotes). As bibliotecas de leitura já vêm na pasta `etiquetas_imei/static/vendor`, então funciona sem internet.
+
+## Como abrir
+
+No computador onde a Zebra está ligada (ou qualquer computador na mesma rede de uma Zebra de rede):
+
+```bash
+python -m etiquetas_imei
+```
+No Windows, basta dar dois cliques em **`Etiquetas IMEI.bat`**.
+
+A janela mostra dois endereços:
+- `http://localhost:8100` — para usar no próprio computador;
+- `http://192.168.x.x:8100` — para abrir **no celular** (mesmo Wi-Fi). No celular, o botão **📷 Tirar foto da caixa** abre a câmera.
+
+## Configurar a impressora (⚙️ no fim da página)
+
+| Ligação | O que preencher |
+|---|---|
+| **Rede** (Ethernet/Wi-Fi) | IP da Zebra e porta `9100` |
+| **USB no Windows** | Nome da impressora como aparece no Windows (ex.: `ZDesigner GC420t`). O envio é em modo RAW pelo spooler, sem instalar nada. |
+| **USB no Linux/macOS** | Nome da fila no CUPS (crie a fila como *Raw*) |
+
+Depois clique em **Imprimir etiqueta de teste**.
+
+Etiqueta (padrão): 203 dpi, 40×25 mm, 2 colunas, 2 mm entre colunas. Se a impressão sair deslocada, ajuste
+**Espaço entre colunas**, **Margem esquerda** e **Ajuste vertical**. Para Zebra de 300 dpi, troque a resolução.
+
+**Layout**
+- *IMEI 1 na esquerda, IMEI 2 na direita* (padrão): cada caixa usa uma fileira — um IMEI por etiqueta.
+- *IMEI 1 e IMEI 2 na mesma etiqueta*: cada etiqueta leva os dois códigos; com 2 colunas, cabem dois celulares por fileira.
+
+## Dicas para a foto
+Enquadre a etiqueta com os códigos, reta, bem iluminada e sem reflexo. Se só um IMEI for lido, tire outra foto
+mais de perto ou digite o segundo. Se a foto trouxer mais de dois números, toque no certo para usar.
+
+## Testes
+```bash
+python -m unittest discover -s tests
+```
