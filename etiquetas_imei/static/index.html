@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>Etiquetas IMEI</title>
+<style>
+:root{
+  --bg:#f3f4f6; --card:#fff; --text:#111827; --muted:#6b7280; --line:#e5e7eb;
+  --accent:#2563eb; --accent-text:#fff; --ok:#059669; --bad:#dc2626; --warn:#b45309;
+  --label:#fff; --label-ink:#000;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#0b1220; --card:#111a2e; --text:#e5e7eb; --muted:#9ca3af; --line:#24314d; --accent:#3b82f6; --ok:#34d399; --bad:#f87171; --warn:#fbbf24}
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.app{max-width:980px;margin:0 auto;padding:16px max(16px,env(safe-area-inset-left)) 40px max(16px,env(safe-area-inset-right));display:grid;gap:16px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-size:22px;margin:0}
+h2{font-size:17px;margin:0 0 12px}
+.sub{color:var(--muted);font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:10px;padding:10px 14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px}
+button:hover{border-color:var(--accent)}
+button.primario,.btn.primario{background:var(--accent);border-color:var(--accent);color:var(--accent-text);font-weight:600}
+button.grande,.btn.grande{width:100%;min-height:58px;font-size:18px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.linha{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.linha > *{flex:1 1 auto}
+label{display:block;font-size:14px;color:var(--muted);margin-bottom:4px}
+input,select{font:inherit;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);min-height:44px}
+input.imei{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:20px;letter-spacing:.06em}
+input.valido{border-color:var(--ok)}
+input.invalido{border-color:var(--bad)}
+.campo{margin-bottom:12px}
+.dica{font-size:13px;margin-top:4px;min-height:18px}
+.dica.ok{color:var(--ok)} .dica.bad{color:var(--bad)} .dica.warn{color:var(--warn)}
+.status{font-size:14px;color:var(--muted);min-height:20px;margin-top:10px}
+.barra{height:4px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}
+.barra div{height:100%;width:0;background:var(--accent);transition:width .15s}
+.foto{display:flex;gap:12px;align-items:flex-start;margin-top:12px}
+.foto img{max-width:120px;max-height:120px;border-radius:8px;border:1px solid var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--bg);cursor:pointer;min-height:auto}
+video{width:100%;border-radius:10px;background:#000;max-height:60vh}
+.fila{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.fila li{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.fila .nums{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;line-height:1.5;min-width:0;overflow-wrap:anywhere}
+.fila .desc{font-family:inherit;color:var(--muted);font-size:13px}
+.fila input{width:64px;min-height:36px;padding:4px 8px}
+.fila button{min-height:36px;padding:4px 10px}
+.vazio{color:var(--muted);font-size:14px;text-align:center;padding:12px}
+.previa{display:flex;flex-direction:column;gap:6px;overflow-x:auto;padding:10px;background:repeating-linear-gradient(45deg,var(--bg),var(--bg) 6px,var(--line) 6px,var(--line) 7px);border-radius:10px}
+.fileira{display:flex}
+.etq{background:var(--label);color:var(--label-ink);border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.25);display:flex;flex-direction:column;align-items:center;gap:.25em;padding:.6em .5em;overflow:hidden;flex:none;font-family:Arial,sans-serif}
+.etq.vazia{background:rgba(255,255,255,.55);box-shadow:none;outline:1px dashed #999}
+.etq svg{max-width:100%;display:block;flex:1 1 0;min-height:0}
+.etq .t{font-size:1em;white-space:nowrap;line-height:1;margin-bottom:.35em}
+.etq .d{font-size:.95em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;line-height:1}
+details summary{cursor:pointer;font-weight:600}
+.cfg{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:12px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111827;color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.3);max-width:calc(100% - 32px);z-index:10;font-size:15px}
+.toast.erro{background:#991b1b}
+.check{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15px;margin:0}
+.check input{width:auto;min-height:auto}
+#impressao{display:none}
+#impressao .pagina{position:relative;overflow:hidden;background:#fff;color:#000;break-after:page;page-break-after:always}
+#impressao .pagina:last-child{break-after:auto;page-break-after:auto}
+#impressao .el{position:absolute;margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;line-height:1;white-space:nowrap;text-align:center;overflow:hidden}
+#impressao svg{shape-rendering:crispEdges}
+@media print{
+  html,body{background:#fff!important;margin:0!important;padding:0!important}
+  body > :not(#impressao){display:none!important}
+  #impressao{display:block!important}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Etiquetas IMEI</h1>
+      <div class="sub">Foto da caixa → IMEI 1 e IMEI 2 → etiqueta Zebra <span id="tamanho">40×25 mm, 2 colunas</span></div>
+    </div>
+  </header>
+
+  <div class="grid2">
+    <section class="card">
+      <h2>1. Ler os IMEIs</h2>
+      <input id="arquivo" type="file" accept="image/*" capture="environment" hidden>
+      <input id="galeria" type="file" accept="image/*" hidden>
+      <button id="btnFoto" class="primario grande">📷 Tirar foto da caixa</button>
+      <div class="linha" style="margin-top:10px">
+        <button id="btnGaleria">🖼️ Escolher foto</button>
+        <button id="btnCamera" hidden>🎥 Câmera do computador</button>
+      </div>
+      <div id="camBox" hidden style="margin-top:10px">
+        <video id="video" playsinline muted></video>
+        <div class="linha" style="margin-top:8px">
+          <button id="btnCapturar" class="primario">Capturar</button>
+          <button id="btnFecharCam">Fechar câmera</button>
+        </div>
+      </div>
+      <div id="status" class="status">Fotografe a etiqueta da caixa onde aparecem os códigos de barras dos IMEIs. Dá para digitar ou usar leitor de código de barras USB também.</div>
+      <div class="barra" id="barra" hidden><div></div></div>
+      <div class="foto" id="fotoBox" hidden>
+        <img id="miniatura" alt="Foto lida">
+        <div>
+          <div class="sub" id="achadosTxt"></div>
+          <div class="chips" id="chips"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2. Conferir</h2>
+      <div class="campo">
+        <label for="imei1">IMEI 1</label>
+        <input id="imei1" class="imei" inputmode="numeric" autocomplete="off" maxlength="17" placeholder="15 dígitos">
+        <div class="dica" id="dica1"></div>
+      </div>
+      <div class="campo">
+        <label for="imei2">IMEI 2</label>
+        <input id="imei2" class="imei" inputmode="numeric" autocomplete="off" maxlength="17" placeholder="15 dígitos (opcional)">
+        <div class="dica" id="dica2"></div>
+      </div>
+      <div class="linha campo">
+        <div style="flex:3 1 180px">
+          <label for="descricao">Descrição (opcional, sai no topo)</label>
+          <input id="descricao" maxlength="60" placeholder="Ex.: Galaxy A15 128GB">
+        </div>
+        <div style="flex:1 1 80px">
+          <label for="copias">Cópias</label>
+          <input id="copias" type="number" min="1" max="500" value="1" inputmode="numeric">
+        </div>
+      </div>
+      <div class="linha">
+        <button id="btnInverter" title="Trocar IMEI 1 e IMEI 2">⇅ Inverter</button>
+        <button id="btnLimpar">Limpar</button>
+      </div>
+      <div class="linha" style="margin-top:10px">
+        <button id="btnImprimir" class="primario">🖨️ Imprimir agora</button>
+        <button id="btnFila">＋ Adicionar à fila</button>
+      </div>
+      <label class="check" style="margin-top:12px"><input type="checkbox" id="auto"> Imprimir sozinho quando a foto trouxer os 2 IMEIs</label>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Prévia da etiqueta</h2>
+    <div class="previa" id="previa"></div>
+    <div class="sub" id="previaTxt" style="margin-top:8px"></div>
+  </section>
+
+  <section class="card">
+    <div class="linha" style="justify-content:space-between;margin-bottom:12px">
+      <h2 style="margin:0;flex:0 1 auto">Fila de impressão <span id="filaQtd" class="sub"></span></h2>
+      <div class="linha" style="flex:0 1 auto">
+        <button id="btnImprimirFila" class="primario" disabled>🖨️ Imprimir fila</button>
+        <button id="btnBaixar" disabled>⬇️ Baixar ZPL</button>
+        <button id="btnLimparFila" disabled>Esvaziar</button>
+      </div>
+    </div>
+    <ul class="fila" id="fila"></ul>
+  </section>
+
+  <section class="card">
+    <details id="detCfg">
+      <summary>⚙️ Impressora e etiqueta</summary>
+      <form id="cfg" class="cfg" autocomplete="off">
+        <div><label>Como imprimir</label>
+          <select name="modo">
+            <option value="computador">Pelo computador (janela de impressão / PDF)</option>
+            <option value="rede">Zebra na rede (ZPL direto, porta 9100)</option>
+            <option value="windows">Zebra USB no Windows (ZPL direto)</option>
+            <option value="cups">Zebra USB no Linux/macOS (ZPL direto, CUPS)</option>
+            <option value="arquivo">Só salvar em arquivo (teste)</option>
+          </select></div>
+        <div data-modo="computador" style="grid-column:1/-1" class="sub">Abre a janela de impressão do computador com as etiquetas no tamanho exato.
+          Escolha a impressora de etiquetas, deixe <b>Margens: Nenhuma</b> e <b>Escala: 100%</b>; no driver da impressora,
+          use o papel de <b id="papelTxt">82×25 mm</b> (as 2 colunas juntas). Também dá para escolher “Salvar como PDF”.</div>
+        <div data-modo="rede"><label>IP da impressora</label><input name="ip" placeholder="192.168.0.100"></div>
+        <div data-modo="rede"><label>Porta</label><input name="porta" type="number"></div>
+        <div data-modo="windows cups"><label>Nome da impressora</label><input name="nome_impressora" list="listaImpressoras" placeholder="ZDesigner GC420t"><datalist id="listaImpressoras"></datalist></div>
+        <div data-modo="arquivo"><label>Arquivo</label><input name="arquivo_saida"></div>
+        <div><label>Layout</label>
+          <select name="layout">
+            <option value="separado">IMEI 1 na esquerda, IMEI 2 na direita</option>
+            <option value="par">IMEI 1 e IMEI 2 na mesma etiqueta</option>
+          </select></div>
+        <div><label>Resolução</label>
+          <select name="dpi"><option value="203">203 dpi (8 pontos/mm)</option><option value="300">300 dpi (12 pontos/mm)</option><option value="600">600 dpi</option></select></div>
+        <div><label>Largura da etiqueta (mm)</label><input name="largura_mm" type="number" step="0.5"></div>
+        <div><label>Altura da etiqueta (mm)</label><input name="altura_mm" type="number" step="0.5"></div>
+        <div><label>Colunas</label><input name="colunas" type="number" min="1" max="4"></div>
+        <div><label>Espaço entre colunas (mm)</label><input name="espaco_colunas_mm" type="number" step="0.5"></div>
+        <div><label>Margem esquerda (mm)</label><input name="margem_esquerda_mm" type="number" step="0.5"></div>
+        <div><label>Ajuste vertical (mm)</label><input name="ajuste_vertical_mm" type="number" step="0.5"></div>
+        <div><label>Escurecimento (−30 a 30)</label><input name="escurecimento" type="number"></div>
+        <div><label>Velocidade (pol/s)</label><input name="velocidade" type="number" min="1" max="14"></div>
+      </form>
+      <div class="linha" style="margin-top:14px">
+        <button id="btnSalvarCfg" class="primario">Salvar</button>
+        <button id="btnTeste">Imprimir etiqueta de teste</button>
+      </div>
+    </details>
+  </section>
+</div>
+<div id="toast" class="toast" hidden></div>
+<div id="impressao" aria-hidden="true"></div>
+<style id="estiloPagina"></style>
+
+<script src="static/vendor/zxing-wasm-reader.js"></script>
+<script src="static/vendor/JsBarcode.all.min.js"></script>
+<script src="static/leitor.js"></script>
+<script src="static/app.js"></script>
+</body>
+</html>
