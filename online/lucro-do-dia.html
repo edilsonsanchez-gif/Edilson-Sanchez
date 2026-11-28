@@ -1,0 +1,396 @@
+<title>Lucro do Dia</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap">
+<style>
+/* Layout: barra de status → número grande do lucro (margem de contribuição) com evolução do dia → cartões do Resumo Financeiro → controles */
+:root{
+  color-scheme:dark;
+  --bg:#03070f; --bg2:#071124; --panel:rgba(10,30,60,.35); --line:rgba(90,200,255,.28); --grid:rgba(90,200,255,.12);
+  --cyan:#4fd8ff; --cyan-soft:#8fe6ff; --text:#d8f3ff; --text2:#6f93ad; --up:#3dffb0; --down:#ff6b8a; --warn:#ffb547;
+  --font:"Rajdhani",-apple-system,"Segoe UI",sans-serif; --mono:"Share Tech Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:radial-gradient(ellipse at 30% 30%,#0b2347 0%,var(--bg2) 40%,var(--bg) 100%) fixed;background-color:var(--bg);color:var(--text);font:16px/1.4 var(--font);overflow-x:hidden}
+.mono{font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase}
+.app{max-width:1300px;margin:0 auto;padding-block:18px 24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px 16px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--line);padding-bottom:6px;flex-wrap:wrap}
+.brand b{font-weight:700;font-size:30px;letter-spacing:.22em;color:var(--cyan);text-shadow:0 0 14px rgba(79,216,255,.6)}
+.brand span{font-size:11px;color:var(--text2)}
+.trocar{align-self:center;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);text-decoration:none;border:1px solid var(--cyan);padding:6px 10px}
+.trocar:hover{background:rgba(79,216,255,.12)}
+.sbar{display:flex;gap:18px;font-size:12px;color:var(--text2);flex-wrap:wrap}
+.sbar .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text2);margin-right:6px}
+.on .sbar .dot{background:var(--up);box-shadow:0 0 8px var(--up);animation:blink 2s infinite}
+.lendo .sbar .dot{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+@keyframes blink{50%{opacity:.35}}
+.aviso{border:1px solid var(--warn);background:rgba(255,181,71,.08);padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.panel{border:1px solid var(--line);background:var(--panel);padding:16px 20px;position:relative;min-width:0}
+.panel::before,.panel::after{content:"";position:absolute;width:12px;height:12px;border:2px solid var(--cyan);pointer-events:none}
+.panel::before{top:-1px;left:-1px;border-right:0;border-bottom:0}
+.panel::after{bottom:-1px;right:-1px;border-left:0;border-top:0}
+.ptitle{font-size:11px;color:var(--cyan);margin:0 0 12px;font-weight:400}
+.ptitle::before{content:"◆ "}
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:24px;align-items:center}
+.lucro{font-family:var(--mono);font-size:clamp(40px,8vw,76px);line-height:1;color:var(--up);text-shadow:0 0 22px rgba(61,255,176,.35);font-variant-numeric:tabular-nums}
+.lucro.neg{color:var(--down);text-shadow:0 0 22px rgba(255,107,138,.35)}
+.lucro-sub{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:14px;color:var(--text2);margin-top:10px}
+.lucro-sub b{color:var(--text);font-weight:400}
+.delta{color:var(--up)}
+.evol svg{width:100%;height:auto;display:block}
+.evol text{fill:var(--text2);font-family:var(--mono);font-size:11px}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.card{border-top:1px solid var(--line);padding-top:8px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.card .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text2)}
+.card .v{font-family:var(--mono);font-size:24px;color:var(--text);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.card .s{font-family:var(--mono);font-size:12px;color:var(--text2)}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+button{font-family:var(--mono);text-transform:uppercase;letter-spacing:.14em;font-size:13px;border:1px solid var(--cyan);background:var(--cyan);color:#02101c;padding:10px 18px;cursor:pointer;box-shadow:0 0 18px rgba(79,216,255,.45);border-radius:0}
+button.ghost{background:transparent;color:var(--cyan);box-shadow:none}
+button[aria-pressed="true"]{background:rgba(61,255,176,.12);border-color:var(--up);color:var(--up);box-shadow:none}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible,a:focus-visible{outline:2px solid var(--cyan-soft);outline-offset:2px}
+.vazio{color:var(--text2);margin:0;font-size:17px}
+details{font-size:13px;color:var(--text2)}
+details pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto;background:rgba(3,10,22,.7);padding:10px;border:1px solid var(--line)}
+footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:10px;color:var(--text2)}
+@media (max-width:900px){.hero{grid-template-columns:minmax(0,1fr)}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.brand b{font-size:24px}}
+@media (prefers-reduced-motion:reduce){.on .sbar .dot{animation:none}}
+</style>
+
+<div class="app" id="app">
+  <header>
+    <div class="brand">
+      <b>LUCRO DO DIA</b><span class="mono">Mercado Turbo · Resumo financeiro</span>
+      <a class="trocar" href="https://claude.ai/artifact/B1G4dFNEHccHfq8dfrbWN8" target="_blank" rel="noopener">Ir para Meili ↗</a>
+    </div>
+    <div class="sbar mono"><span><i class="dot"></i><span id="sis">Desconectado</span></span><span id="auto"></span><span id="relogio">--:--:--</span></div>
+  </header>
+
+  <div class="aviso" id="aviso" hidden><span id="aviso-texto"></span><button type="button" class="ghost" id="aviso-botao" hidden></button></div>
+
+  <section class="panel hero" id="sec-lucro">
+    <div>
+      <h2 class="ptitle mono">Lucro de hoje · margem de contribuição</h2>
+      <div class="lucro" id="lucro">R$ —</div>
+      <div class="lucro-sub" id="lucro-sub"><span>Clique em “Conectar ao Mercado Turbo” para começar.</span></div>
+    </div>
+    <div class="evol">
+      <h2 class="ptitle mono">Evolução do lucro hoje</h2>
+      <div id="evol"><p class="vazio">O gráfico se forma a cada leitura, ao longo do dia.</p></div>
+    </div>
+  </section>
+
+  <section class="panel" id="sec-cards">
+    <h2 class="ptitle mono">Resumo financeiro de hoje</h2>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <div class="controls">
+    <button type="button" id="conectar">Conectar ao Mercado Turbo</button>
+    <button type="button" class="ghost" id="agora" hidden>Atualizar agora</button>
+    <button type="button" class="ghost" id="som" aria-pressed="false">Ligar som de venda</button>
+  </div>
+
+  <details id="diag" hidden><summary>Texto lido da página (para ajuste)</summary><pre id="diag-texto"></pre></details>
+  <footer class="mono"><span>Fonte: Mercado Turbo · tela Resumo Financeiro · lida pelo navegador do app Claude</span><span id="ultima"></span></footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var URL_RESUMO = "https://app.mercadoturbo.com.br/sistema/financeiro/resumofinanceiro";
+  var SERVIDOR = "host:claude_browser";
+  var INTERVALO = 60000;
+  var $ = function (id) { return document.getElementById(id); };
+  function el(tag, attrs, filhos) {
+    var e = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) { if (k === "text") e.textContent = attrs[k]; else if (k === "class") e.className = attrs[k]; else e.setAttribute(k, attrs[k]); });
+    (filhos || []).forEach(function (f) { if (f) e.appendChild(typeof f === "string" ? document.createTextNode(f) : f); });
+    return e;
+  }
+  function brl(n) { return (n < 0 ? "-" : "") + "R$ " + Math.abs(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function z(n) { return String(n).padStart(2, "0"); }
+  function hhmm(d) { return z(d.getHours()) + ":" + z(d.getMinutes()); }
+  function hojeISO() { var d = new Date(); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); }
+
+  var estado = { mcp: null, tabId: null, conectado: false, lendo: false, proxima: 0, dados: null, ultima: null, esquemas: {}, falhasSeguidas: 0 };
+  var historico = [];
+  try { var h = JSON.parse(localStorage.getItem("lucro-hist") || "null"); if (h && h.dia === hojeISO()) historico = h.pontos || []; } catch (e) {}
+  function salvarHist() { try { localStorage.setItem("lucro-hist", JSON.stringify({ dia: hojeISO(), pontos: historico.slice(-600) })); } catch (e) {} }
+
+  // ---------- Avisos ----------
+  function aviso(texto, botao, acao) {
+    $("aviso").hidden = !texto; $("aviso-texto").textContent = texto || "";
+    var b = $("aviso-botao"); b.hidden = !botao; if (botao) { b.textContent = botao; b.onclick = acao; }
+  }
+  var ERROS = {
+    server_not_connected: "Este painel lê o Mercado Turbo pelo navegador do app Claude. Abra-o no app Claude do computador (Artefatos → Lucro do Dia).",
+    capability_disabled: "Este painel só funciona dentro do app Claude do computador.",
+    not_granted: "Este painel só funciona dentro do app Claude do computador.",
+    not_in_manifest: "O uso do navegador foi recusado para este painel. Permita no menu Permissões do artefato e clique em Tentar de novo.",
+    approval_required: "O painel precisa da sua permissão para usar o navegador do app Claude.",
+    consent_required: "O painel precisa da sua permissão para usar o navegador do app Claude.",
+    cancelled: "O uso do navegador foi recusado. Clique em Tentar de novo para permitir.",
+    blocked_by_policy: "A sua organização bloqueou o uso do navegador por aqui."
+  };
+
+  // ---------- Chamadas ao navegador do app Claude ----------
+  // Os nomes exatos dos campos de cada ferramenta são lidos na hora (describeTool), para não depender de suposição.
+  function esquema(tool) {
+    if (estado.esquemas[tool] !== undefined) return Promise.resolve(estado.esquemas[tool]);
+    if (!estado.mcp.describeTool) { estado.esquemas[tool] = null; return Promise.resolve(null); }
+    return estado.mcp.describeTool(SERVIDOR, tool).then(function (d) {
+      var s = d && d.inputSchema && d.inputSchema.properties ? d.inputSchema : null;
+      estado.esquemas[tool] = s; return s;
+    }).catch(function () { estado.esquemas[tool] = null; return null; });
+  }
+  function montar(s, quer) {
+    if (!s) return quer;
+    var props = s.properties || {}, out = {};
+    Object.keys(quer).forEach(function (k) {
+      if (quer[k] === undefined || quer[k] === null) return;
+      if (props[k]) { out[k] = quer[k]; return; }
+      var alt = Object.keys(props).filter(function (p) { return p.toLowerCase().replace(/[_-]/g, "") === k.toLowerCase(); })[0];
+      if (alt) out[alt] = quer[k];
+    });
+    if (props.tabId && props.tabId.type === "number" && typeof out.tabId === "string" && /^\d+$/.test(out.tabId)) out.tabId = Number(out.tabId);
+    return out;
+  }
+  function chamar(tool, quer) {
+    return esquema(tool).then(function (s) { return estado.mcp.callTool(SERVIDOR, tool, montar(s, quer), { cache: false }); });
+  }
+  function textoDe(res) {
+    var partes = [];
+    (res && res.content || []).forEach(function (c) { if (c && c.type === "text" && typeof c.text === "string") partes.push(c.text); });
+    if (partes.length) return partes.join("\n");
+    var p = res && res.payload;
+    if (typeof p === "string") return p;
+    var maior = "";
+    (function busca(o, n) { if (!o || n > 4) return; if (typeof o === "string") { if (o.length > maior.length) maior = o; return; } if (typeof o === "object") Object.keys(o).forEach(function (k) { busca(o[k], n + 1); }); })(p, 0);
+    return maior;
+  }
+  function achaTab(res) {
+    var achado = null;
+    (function busca(o, n) {
+      if (!o || n > 4 || achado !== null) return;
+      if (typeof o === "object") Object.keys(o).forEach(function (k) {
+        if (achado !== null) return;
+        if (/^tab_?id$/i.test(k) && (typeof o[k] === "number" || typeof o[k] === "string")) achado = o[k]; else busca(o[k], n + 1);
+      });
+    })(res && res.payload, 0);
+    if (achado === null) { var m = /tab\s*_?id["'\s:=]+["']?([\w-]+)/i.exec(textoDe(res)); if (m) achado = /^\d+$/.test(m[1]) ? Number(m[1]) : m[1]; }
+    return achado;
+  }
+  function esperar(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  // ---------- Leitura do Resumo Financeiro ----------
+  function num(s) { if (!s) return null; var neg = /-/.test(s); var v = parseFloat(s.replace(/[^\d,]/g, "").replace(",", ".")); return isNaN(v) ? null : (neg ? -v : v); }
+  function rs(texto, rotulo, janela) {
+    var re = new RegExp(rotulo + "[\\s\\S]{0," + (janela || 60) + "}?(-?\\s*R\\$\\s*-?\\s*[\\d.]+,\\d{2})", "i");
+    var m = re.exec(texto); return m ? num(m[1]) : null;
+  }
+  function interpretar(t) {
+    t = t.replace(/ /g, " ");
+    var d = {
+      vendas: rs(t, "Vendas Aprovadas(?! por)"),
+      faturamento: rs(t, "Faturamento ML"),
+      canceladas: rs(t, "Vendas Canceladas"),
+      custo: rs(t, "Custo & Imposto"),
+      tarifa: rs(t, "Tarifa de Venda"),
+      frete: rs(t, "Frete Total"),
+      margem: rs(t, "Margem de Contribui[çc][ãa]o"),
+      ticket: rs(t, "Ticket M[ée]dio \\(Aprovadas\\)"),
+      ticketMargem: rs(t, "Ticket M[ée]dio da Margem"),
+      devolucoes: rs(t, "Devolu[çc][õo]es Parciais")
+    };
+    var mp = /Margem de Contribui[çc][ãa]o[\s\S]{0,60}?R\$\s*-?[\d.]+,\d{2}[\s\S]{0,30}?(-?[\d.]+,\d{1,2})\s*%/i.exec(t);
+    d.margemPct = mp ? num(mp[1]) : null;
+    var tp = /Tarifa de Venda[\s\S]{0,120}?Percentual das Vendas[\s\S]{0,20}?([\d.]+,\d{1,2})\s*%/i.exec(t);
+    d.tarifaPct = tp ? num(tp[1]) : null;
+    var q = /Qtd Itens Aprovados[\s\S]{0,30}?(\d+)/i.exec(t); d.itens = q ? Number(q[1]) : null;
+    var pd = /De\s*(\d{2}\/\d{2}\/\d{4})[\s\S]{0,40}?At[ée]\s*(\d{2}\/\d{2}\/\d{4})/i.exec(t); d.periodo = pd ? pd[1] + " a " + pd[2] : "";
+    return d;
+  }
+  function pareceLogin(t) { return !/Resumo Financeiro/i.test(t) && /(senha|entrar|login|acessar)/i.test(t); }
+
+  function ler() {
+    if (!estado.mcp || estado.lendo) return;
+    estado.lendo = true; estado.proxima = Date.now() + INTERVALO; render();
+    var abrir = estado.tabId !== null
+      ? chamar("navigate", { url: URL_RESUMO, tabId: estado.tabId }).catch(function (e) {
+          // a aba pode ter sido fechada: abre outra
+          if (e && e.code === "tool_error") { estado.tabId = null; return chamar("preview_start", { url: URL_RESUMO }).then(function (r) { estado.tabId = achaTab(r); }); }
+          throw e;
+        })
+      : chamar("preview_start", { url: URL_RESUMO }).then(function (r) { estado.tabId = achaTab(r); });
+    var tentativas = 0, texto = "";
+    function lerTexto() {
+      return esperar(tentativas === 0 ? 2500 : 2500).then(function () {
+        return chamar("get_page_text", { tabId: estado.tabId === null ? undefined : estado.tabId });
+      }).then(function (r) {
+        texto = textoDe(r); tentativas++;
+        var d = interpretar(texto);
+        if (d.margem === null && d.vendas === null && tentativas < 4 && !pareceLogin(texto)) return lerTexto();
+        return d;
+      });
+    }
+    abrir.then(lerTexto).then(function (d) {
+      $("diag-texto").textContent = texto.slice(0, 4000);
+      $("diag").hidden = false;
+      if (d.margem === null && d.vendas === null) {
+        estado.falhasSeguidas++;
+        if (pareceLogin(texto)) aviso("O Mercado Turbo pediu login. No app Claude, abra o navegador (Ctrl+Shift+B), entre no Mercado Turbo e clique em Tentar de novo.", "Tentar de novo", ler);
+        else aviso("Abri o Mercado Turbo, mas não encontrei os números do Resumo Financeiro. Veja o “Texto lido da página” abaixo e me mande, para eu ajustar.", "Tentar de novo", ler);
+        return;
+      }
+      estado.falhasSeguidas = 0;
+      aviso(null);
+      var antes = estado.dados;
+      estado.dados = d; estado.ultima = new Date();
+      if (d.margem !== null) { historico.push({ t: Date.now(), v: d.margem }); salvarHist(); }
+      if (antes && d.itens !== null && antes.itens !== null && d.itens > antes.itens) novaVenda(d, antes);
+    }).catch(function (e) {
+      var code = e && e.code;
+      if (ERROS[code]) {
+        estado.conectado = code !== "server_not_connected" && code !== "capability_disabled" && code !== "not_granted" && estado.conectado;
+        aviso(ERROS[code], code === "blocked_by_policy" || code === "server_not_connected" ? null : "Tentar de novo", function () { estado.conectado = true; ler(); });
+      } else {
+        aviso("Não consegui ler o Mercado Turbo agora" + (e && e.message ? " (" + e.message.slice(0, 160) + ")" : "") + ". Vou tentar de novo no próximo minuto.", "Tentar agora", ler);
+      }
+    }).then(function () { estado.lendo = false; render(); });
+  }
+
+  // ---------- Som e voz quando entra venda ----------
+  var somLigado = false, audioCtx = null, tts = null;
+  try { somLigado = localStorage.getItem("lucro-som") === "1"; } catch (e) {}
+  function prepararAudio() {
+    try { var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; if (!audioCtx) audioCtx = new AC(); if (audioCtx.state === "suspended") audioCtx.resume(); return audioCtx; } catch (e) { return null; }
+  }
+  function tocarCaixa() {
+    var ctx = prepararAudio(); if (!ctx || ctx.state !== "running") return false;
+    var t0 = ctx.currentTime + 0.02, saida = ctx.createGain(); saida.gain.value = 0.55; saida.connect(ctx.destination);
+    function batida(t, dur, f) { var n = Math.floor(ctx.sampleRate * dur), buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0); for (var i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3); var s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(); s.buffer = buf; fl.type = "bandpass"; fl.frequency.value = f; s.connect(fl); fl.connect(saida); s.start(t); }
+    function sino(t, f, vol, dur) { [1, 2.76, 5.4].forEach(function (h, k) { var o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = f * h; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol / (k + 1), t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur / (k + 1)); o.connect(g); g.connect(saida); o.start(t); o.stop(t + dur + 0.05); }); }
+    batida(t0, 0.06, 2500); batida(t0 + 0.09, 0.05, 3200); batida(t0 + 0.2, 0.14, 900); sino(t0 + 0.32, 1568, 0.5, 1.1); sino(t0 + 0.36, 2093, 0.35, 1.0);
+    return true;
+  }
+  function falar(texto) {
+    if (tts) { tts.speak(texto, { language: "pt-BR", voice: "rounded" }).catch(function () {}); return; }
+    try { var u = new SpeechSynthesisUtterance(texto); u.lang = "pt-BR"; window.speechSynthesis.speak(u); } catch (e) {}
+  }
+  function novaVenda(d, antes) {
+    var novas = d.itens - antes.itens;
+    if (!somLigado) return;
+    var frase = (novas === 1 ? "Saiu uma venda." : "Saíram " + novas + " vendas.") + (d.margem !== null ? " Lucro do dia: " + brl(d.margem).replace("R$ ", "") + " reais." : "");
+    if (tocarCaixa()) setTimeout(function () { falar(frase); }, 1400); else falar(frase);
+  }
+  $("som").addEventListener("click", function () {
+    somLigado = !somLigado;
+    try { localStorage.setItem("lucro-som", somLigado ? "1" : "0"); } catch (e) {}
+    if (somLigado) { prepararAudio(); tocarCaixa(); }
+    render();
+  });
+  document.addEventListener("pointerdown", function () { if (somLigado) prepararAudio(); }, true);
+
+  // ---------- Desenho ----------
+  function render() {
+    $("app").classList.toggle("on", estado.conectado);
+    $("app").classList.toggle("lendo", estado.lendo);
+    $("sis").textContent = estado.lendo ? "Lendo Mercado Turbo" : estado.conectado ? "Conectado" : "Desconectado";
+    $("conectar").hidden = estado.conectado;
+    $("agora").hidden = !estado.conectado;
+    $("agora").disabled = estado.lendo;
+    var s = $("som"); s.setAttribute("aria-pressed", somLigado ? "true" : "false"); s.textContent = somLigado ? "Som de venda ligado" : "Ligar som de venda";
+    $("ultima").textContent = estado.ultima ? "Última leitura: " + hhmm(estado.ultima) + ":" + z(estado.ultima.getSeconds()) : "";
+    var d = estado.dados;
+    var L = $("lucro"), sub = $("lucro-sub");
+    if (d && d.margem !== null) {
+      L.textContent = brl(d.margem); L.classList.toggle("neg", d.margem < 0);
+      sub.textContent = "";
+      if (d.margemPct !== null) sub.appendChild(el("span", {}, ["Margem ", el("b", { text: d.margemPct.toLocaleString("pt-BR") + "%" })]));
+      if (d.itens !== null) sub.appendChild(el("span", {}, [el("b", { text: String(d.itens) }), d.itens === 1 ? " item vendido" : " itens vendidos"]));
+      var primeiro = historico.length ? historico[0] : null;
+      if (primeiro && historico.length > 1) {
+        var dif = d.margem - primeiro.v;
+        if (dif) sub.appendChild(el("span", { class: "delta", text: (dif > 0 ? "+" : "") + brl(dif) + " desde " + hhmm(new Date(primeiro.t)) }));
+      }
+      if (d.periodo) sub.appendChild(el("span", { text: "Período " + d.periodo }));
+    }
+    renderCards(d);
+    renderEvol();
+  }
+  function renderCards(d) {
+    var box = $("cards"); box.textContent = "";
+    if (!d) { box.appendChild(el("p", { class: "vazio", text: "Os números aparecem aqui depois da primeira leitura." })); return; }
+    var itens = [
+      ["Vendas aprovadas", d.vendas, d.itens !== null ? d.itens + (d.itens === 1 ? " item" : " itens") : ""],
+      ["Faturamento ML", d.faturamento, ""],
+      ["Custo & imposto", d.custo, ""],
+      ["Tarifa de venda", d.tarifa, d.tarifaPct !== null ? d.tarifaPct.toLocaleString("pt-BR") + "% das vendas" : ""],
+      ["Frete total", d.frete, ""],
+      ["Ticket médio", d.ticket, ""],
+      ["Ticket médio da margem", d.ticketMargem, ""],
+      ["Vendas canceladas", d.canceladas, d.devolucoes ? "Devoluções " + brl(d.devolucoes) : ""]
+    ];
+    itens.forEach(function (x) {
+      box.appendChild(el("div", { class: "card" }, [el("span", { class: "k", text: x[0] }), el("span", { class: "v", text: x[1] === null ? "—" : brl(x[1]) }), x[2] ? el("span", { class: "s", text: x[2] }) : null]));
+    });
+  }
+  var NS = "http://www.w3.org/2000/svg";
+  function sv(tag, a) { var e = document.createElementNS(NS, tag); Object.keys(a).forEach(function (k) { e.setAttribute(k, a[k]); }); return e; }
+  function renderEvol() {
+    var box = $("evol");
+    if (historico.length < 2) { if (!box.querySelector(".vazio")) { box.textContent = ""; box.appendChild(el("p", { class: "vazio", text: "O gráfico se forma a cada leitura, ao longo do dia." })); } return; }
+    box.textContent = "";
+    var W = Math.max(280, Math.round(box.clientWidth || 600)), H = 150, esq = 64, dir = 10, top = 10, base = H - 22;
+    var vs = historico.map(function (p) { return p.v; }), mn = Math.min.apply(null, vs.concat([0])), mx = Math.max.apply(null, vs);
+    if (mx === mn) mx = mn + 1;
+    var t0 = historico[0].t, t1 = historico[historico.length - 1].t; if (t1 === t0) t1 = t0 + 1;
+    var x = function (t) { return esq + (W - esq - dir) * (t - t0) / (t1 - t0); }, y = function (v) { return base - (base - top) * (v - mn) / (mx - mn); };
+    var svg = sv("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": "Lucro do dia ao longo das leituras" });
+    [mn, (mn + mx) / 2, mx].forEach(function (v) {
+      svg.appendChild(sv("line", { x1: esq, x2: W - dir, y1: y(v), y2: y(v), stroke: "var(--grid)" }));
+      var tx = sv("text", { x: esq - 6, y: y(v) + 4, "text-anchor": "end" }); tx.textContent = "R$ " + Math.round(v).toLocaleString("pt-BR"); svg.appendChild(tx);
+    });
+    var d = historico.map(function (p, i) { return (i ? "L" : "M") + x(p.t).toFixed(1) + "," + y(p.v).toFixed(1); }).join(" ");
+    svg.appendChild(sv("path", { d: d + " L" + x(t1) + "," + base + " L" + x(t0) + "," + base + " Z", fill: "rgba(61,255,176,.10)" }));
+    svg.appendChild(sv("path", { d: d, fill: "none", stroke: "var(--up)", "stroke-width": "2" }));
+    var ult = historico[historico.length - 1];
+    svg.appendChild(sv("circle", { cx: x(ult.t), cy: y(ult.v), r: 4, fill: "var(--up)" }));
+    [t0, t1].forEach(function (t, i) { var tx = sv("text", { x: x(t), y: H - 6, "text-anchor": i ? "end" : "start" }); tx.textContent = hhmm(new Date(t)); svg.appendChild(tx); });
+    box.appendChild(svg);
+  }
+
+  function relogio() {
+    var d = new Date();
+    $("relogio").textContent = z(d.getHours()) + ":" + z(d.getMinutes()) + ":" + z(d.getSeconds());
+    var falta = Math.max(0, Math.ceil((estado.proxima - Date.now()) / 1000));
+    $("auto").textContent = estado.conectado && estado.proxima ? (estado.lendo ? "Lendo agora" : "Nova leitura em " + falta + "s") : "";
+    if (estado.conectado && estado.proxima && Date.now() >= estado.proxima && !estado.lendo) ler();
+  }
+
+  // ---------- Início ----------
+  function conectar() {
+    if (!estado.mcp) { aviso(ERROS.server_not_connected, null); return; }
+    estado.conectado = true;
+    try { localStorage.setItem("lucro-conectado", "1"); } catch (e) {}
+    ler();
+  }
+  $("conectar").addEventListener("click", conectar);
+  $("agora").addEventListener("click", ler);
+  render();
+  setInterval(relogio, 1000); relogio();
+  var claude = window.claude;
+  if (!claude || typeof claude.use !== "function") { aviso("Abra este painel no app Claude do computador.", null); return; }
+  claude.use("tts").then(function (t) { tts = t; }).catch(function () {});
+  claude.use("mcp").then(function (m) {
+    estado.mcp = m;
+    if (!m) { aviso("Este painel só funciona dentro do app Claude do computador (Artefatos → Lucro do Dia).", null); return; }
+    var lembrou = false; try { lembrou = localStorage.getItem("lucro-conectado") === "1"; } catch (e) {}
+    if (lembrou) conectar();
+  });
+  window.addEventListener("resize", function () { renderEvol(); });
+})();
+</script>
