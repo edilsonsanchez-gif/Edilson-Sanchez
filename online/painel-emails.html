@@ -624,7 +624,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     renderStatus();
     var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
     var dias = [];
-    for (var i = 0; i < estado.periodo; i++) dias.push(new Date(hoje.getTime() - i * DIA));
+    for (var i = 0; i < diasGrafico(); i++) dias.push(new Date(hoje.getTime() - i * DIA));
     var fatal = null, vistos = new Set(), falhas = 0;
     var fmt = function (d) { return d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate(); };
     estado.total = dias.length;
@@ -730,10 +730,14 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
   var pendente = false;
   function agendar() { if (!pendente) { pendente = true; requestAnimationFrame(function () { pendente = false; render(); }); } }
 
-  function visiveis() {
-    var b = normalizar(estado.busca);
+  // O gráfico mostra no mínimo 7 dias, mesmo com "Hoje" escolhido; cartões e lista seguem o período.
+  function diasGrafico() { return Math.max(estado.periodo, 7); }
+  function inicioPeriodo() { var d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() - (estado.periodo - 1) * DIA; }
+  function visiveis(todoGrafico) {
+    var b = normalizar(estado.busca), desde = todoGrafico ? 0 : inicioPeriodo();
     var out = [];
     estado.itens.forEach(function (it) {
+      if (it.data < desde) return;
       if (estado.conta && it.conta !== estado.conta) return;
       if (b && normalizar(it.assunto + " " + it.remetente + " " + it.email + " " + it.trecho + " " + (it.loja || "")).indexOf(b) < 0) return;
       out.push(it);
@@ -752,7 +756,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     $("per-rot").textContent = estado.periodo === 1 ? "Hoje" : estado.periodo + " dias";
     var pr = $("progresso");
     pr.hidden = !estado.carregando;
-    var frac = estado.total ? Math.min(1, estado.feitos / (estado.total + estado.periodo)) : 0;
+    var frac = estado.total ? Math.min(1, estado.feitos / (estado.total + diasGrafico())) : 0;
     pr.firstElementChild.style.width = Math.round(frac * 100) + "%";
   }
 
@@ -793,7 +797,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
       cards.appendChild(b);
     });
 
-    renderGrafico(base);
+    renderGrafico(visiveis(true));
     renderCaption(base);
     renderTicker(base);
 
@@ -905,7 +909,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
 
     var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
     var dias = [];
-    for (var i = estado.periodo - 1; i >= 0; i--) dias.push(diaISO(new Date(hoje.getTime() - i * DIA)));
+    for (var i = diasGrafico() - 1; i >= 0; i--) dias.push(diaISO(new Date(hoje.getTime() - i * DIA)));
     var dados = {};
     dias.forEach(function (d) { dados[d] = { venda: 0, pergunta: 0, mensagem: 0, outros: 0 }; });
     base.forEach(function (it) { var k = diaISO(it.data); if (dados[k]) dados[k][catDe(it)]++; });
