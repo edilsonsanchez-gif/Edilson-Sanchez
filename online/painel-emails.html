@@ -184,6 +184,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
       </section>
       <div class="controls">
         <div class="seg" role="group" aria-label="Período">
+          <button type="button" data-periodo="1" aria-pressed="false">Hoje</button>
           <button type="button" data-periodo="7" aria-pressed="true">7 dias</button>
           <button type="button" data-periodo="14" aria-pressed="false">14 dias</button>
           <button type="button" data-periodo="30" aria-pressed="false">30 dias</button>
@@ -748,7 +749,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
     $("status").textContent = s;
     $("app").classList.toggle("busy", !!estado.carregando);
     $("sis").textContent = estado.carregando ? "Sincronizando" : (mcp ? "Sistema ativo" : "Aguardando Gmail");
-    $("per-rot").textContent = estado.periodo + " dias";
+    $("per-rot").textContent = estado.periodo === 1 ? "Hoje" : estado.periodo + " dias";
     var pr = $("progresso");
     pr.hidden = !estado.carregando;
     var frac = estado.total ? Math.min(1, estado.feitos / (estado.total + estado.periodo)) : 0;
@@ -984,7 +985,7 @@ footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;paddin
 
   try {
     var salvo = Number(localStorage.getItem("painel-periodo"));
-    if ([7, 14, 30].indexOf(salvo) >= 0) {
+    if ([1, 7, 14, 30].indexOf(salvo) >= 0) {
       estado.periodo = salvo;
       Array.prototype.forEach.call(document.querySelectorAll("[data-periodo]"), function (o) {
         o.setAttribute("aria-pressed", Number(o.getAttribute("data-periodo")) === salvo ? "true" : "false");
